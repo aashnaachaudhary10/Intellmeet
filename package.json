@@ -1,0 +1,19 @@
+{
+  "name": "intellmeet",
+  "version": "1.0.0",
+  "description": "AI-powered meeting and collaboration platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "mongoose": "^8.23.0",
+    "nodemon": "^3.1.9"
+  }
+}
