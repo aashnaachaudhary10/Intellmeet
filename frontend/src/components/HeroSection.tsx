@@ -1,8 +1,11 @@
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import heroDashboard from "@/assets/hero-dashboard.jpg";
+import { useNavigate } from 'react-router-dom';
 
 const HeroSection = () => {
+  const navigate = useNavigate(); // Navigation hook
+
   return (
     <section className="relative min-h-screen overflow-hidden bg-gradient-hero pt-24">
       {/* Ambient glow */}
@@ -28,7 +31,11 @@ const HeroSection = () => {
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-up" style={{ animationDelay: "0.3s" }}>
-            <Button size="lg" className="bg-gradient-primary text-primary-foreground px-8 shadow-glow hover:opacity-90 transition-opacity">
+            <Button 
+              size="lg" 
+              className="bg-gradient-primary text-primary-foreground px-8 shadow-glow hover:opacity-90 transition-opacity"
+              onClick={() => navigate('/auth')} // Added navigation
+            >
               Start Free Trial
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Video, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate(); // Navigation hook
 
   const links = [
     { name: "Home", path: "/" },
@@ -40,10 +41,19 @@ const Navbar = () => {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate('/auth')} // Added navigation
+          >
             Sign In
           </Button>
-          <Button size="sm" className="bg-gradient-primary text-primary-foreground hover:opacity-90">
+          <Button 
+            size="sm" 
+            className="bg-gradient-primary text-primary-foreground hover:opacity-90"
+            onClick={() => navigate('/auth')} // Added navigation
+          >
             Get Started
           </Button>
         </div>
@@ -69,8 +79,8 @@ const Navbar = () => {
             </Link>
           ))}
           <div className="mt-4 flex flex-col gap-2">
-            <Button variant="ghost" size="sm" className="text-muted-foreground">Sign In</Button>
-            <Button size="sm" className="bg-gradient-primary text-primary-foreground">Get Started</Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => navigate('/auth')}>Sign In</Button>
+            <Button size="sm" className="bg-gradient-primary text-primary-foreground" onClick={() => navigate('/auth')}>Get Started</Button>
           </div>
         </div>
       )}
