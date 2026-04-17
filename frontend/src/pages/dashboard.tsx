@@ -1,267 +1,311 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, Video, CheckSquare, BarChart3, Settings, 
-  Search, Play, Volume2, Share2, CheckCircle2, ClipboardList, Sparkles, Loader2 
-} from 'lucide-react';
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
+import { getMeetings, createMeeting, joinMeetingByCode, deleteMeeting } from '../services/api'
+import { format } from 'date-fns'
+import {
+  Plus, Video, Link2, Clock, Users, Trash2,
+  ExternalLink, Search, Calendar, ChevronRight, Loader2, Bot
+} from 'lucide-react'
 
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+export default function Dashboard() {
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
 
-  // --- TAB NAVIGATION STATE ---
-  const [activeTab, setActiveTab] = useState('Dashboard');
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showCreate, setShowCreate] = useState(false)
+  const [showJoin, setShowJoin] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [newMeeting, setNewMeeting] = useState({ title: '', description: '' })
+  const [search, setSearch] = useState('')
 
-  // --- DYNAMIC STATE FOR AI INTEGRATION ---
-  const [summaryPoints, setSummaryPoints] = useState([
-    "MongoDB Atlas migration and preparing for competition.",
-    "Redis integration for Socket.io search optimization.",
-    "Kubernetes deployment in the development markets."
-  ]);
+  const { data, isLoading } = useQuery({
+    queryKey: ['meetings'],
+    queryFn: () => getMeetings().then(r => r.data.meetings)
+  })
 
-  const [tasks, setTasks] = useState([
-    { id: 1, label: "Extracted tasks for decoration", user: "@User", date: "15 Apr", completed: false },
-    { id: 2, label: "Short ext emende contrat reformed", user: "@Intern", date: "15 Apr", completed: false },
-    { id: 3, label: "Deploy it Kubernetes components", user: "@User", date: "18 Apr", completed: false },
-  ]);
+  const createMut = useMutation({
+    mutationFn: createMeeting,
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['meetings'] })
+      setShowCreate(false)
+      setNewMeeting({ title: '', description: '' })
+      navigate(`/room/${res.data.meeting._id}`)
+    }
+  })
 
-  const toggleTask = (id: number) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-  };
+  const joinMut = useMutation({
+    mutationFn: () => joinMeetingByCode(joinCode.trim().toUpperCase()),
+    onSuccess: (res) => {
+      setShowJoin(false)
+      navigate(`/room/${res.data.meeting._id}`)
+    }
+  })
 
-  // --- DAY 16/17: AI SUMMARY GENERATION LOGIC ---
-  const handleAiGeneration = () => {
-    setIsAiLoading(true);
-    // Simulate API Call to Gemini/Node backend
-    setTimeout(() => {
-      setSummaryPoints([
-        "Finalized MERN stack architecture for the project.",
-        "Integrated Gemini API for automated meeting notes.",
-        "Optimized Tailwind CSS for dark/light mode visibility."
-      ]);
-      setTasks(prev => [
-        ...prev,
-        { id: Date.now(), label: "Review API Documentation", user: "@Aashna", date: "20 Apr", completed: false }
-      ]);
-      setIsAiLoading(false);
-    }, 2000);
-  };
+  const deleteMut = useMutation({
+    mutationFn: deleteMeeting,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings'] })
+  })
+
+  const meetings = data || []
+  const filtered = meetings.filter((m: any) =>
+    m.title.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const active = filtered.filter((m: any) => m.status === 'active')
+  const scheduled = filtered.filter((m: any) => m.status === 'scheduled')
+  const ended = filtered.filter((m: any) => m.status === 'ended')
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    const map: any = {
+      active: 'bg-green-500/20 text-green-400 border-green-500/30',
+      scheduled: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      ended: 'bg-slate-700 text-slate-400 border-slate-600'
+    }
+    return (
+      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${map[status]}`}>
+        {status === 'active' ? '● Live' : status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    )
+  }
+
+  const MeetingCard = ({ meeting }: { meeting: any }) => (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition group">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-white truncate">{meeting.title}</h3>
+            <StatusBadge status={meeting.status} />
+          </div>
+          {meeting.description && (
+            <p className="text-sm text-slate-400 truncate mb-2">{meeting.description}</p>
+          )}
+          <div className="flex items-center gap-4 text-xs text-slate-500">
+            <span className="flex items-center gap-1">
+              <Calendar size={12} />
+              {format(new Date(meeting.createdAt), 'MMM d, yyyy')}
+            </span>
+            <span className="flex items-center gap-1">
+              <Users size={12} />
+              {meeting.participants?.length || 0} participants
+            </span>
+            {meeting.duration > 0 && (
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {meeting.duration} min
+              </span>
+            )}
+            <span className="flex items-center gap-1 font-mono bg-slate-800 px-2 py-0.5 rounded">
+              <Link2 size={11} />
+              {meeting.meetingCode}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+          {meeting.status !== 'ended' && (
+            <button
+              onClick={() => navigate(`/room/${meeting._id}`)}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition"
+            >
+              <Video size={13} />
+              {meeting.status === 'active' ? 'Join' : 'Start'}
+            </button>
+          )}
+          <button
+            onClick={() => navigate(`/meeting/${meeting._id}`)}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+          >
+            <ExternalLink size={15} />
+          </button>
+          {meeting.host?._id === user?.id || meeting.host === user?.id ? (
+            <button
+              onClick={() => { if (confirm('Delete this meeting?')) deleteMut.mutate(meeting._id) }}
+              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition"
+            >
+              <Trash2 size={15} />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {meeting.summary && (
+        <div className="mt-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center gap-1.5 text-xs text-blue-400 mb-1">
+            <Bot size={12} />
+            AI Summary
+          </div>
+          <p className="text-xs text-slate-400 line-clamp-2">{meeting.summary}</p>
+        </div>
+      )}
+    </div>
+  )
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] text-slate-800 font-sans">
-      
-      {/* --- SIDEBAR --- */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-6 flex items-center gap-2 text-blue-700 font-bold text-xl cursor-pointer" onClick={() => navigate('/')}>
-          <div className="bg-blue-600 p-1 rounded-md text-white"><Video size={20} /></div>
-          IntellMeet
+    <div className="p-8 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0]} 👋
+          </h1>
+          <p className="text-slate-400 mt-1">Manage your meetings and collaborations</p>
         </div>
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <NavItem 
-            icon={<LayoutDashboard size={20}/>} 
-            label="Dashboard" 
-            active={activeTab === 'Dashboard'} 
-            onClick={() => setActiveTab('Dashboard')} 
-          />
-          <NavItem 
-            icon={<Video size={20}/>} 
-            label="Meetings" 
-            active={activeTab === 'Meetings'} 
-            onClick={() => navigate('/lobby')} 
-          />
-          <NavItem 
-            icon={<CheckSquare size={20}/>} 
-            label="Tasks" 
-            active={activeTab === 'Tasks'} 
-            onClick={() => setActiveTab('Tasks')} 
-          />
-          <NavItem 
-            icon={<BarChart3 size={20}/>} 
-            label="Analytics" 
-            active={activeTab === 'Analytics'} 
-            onClick={() => setActiveTab('Analytics')} 
-          />
-          <NavItem 
-            icon={<Settings size={20}/>} 
-            label="Settings" 
-            active={activeTab === 'Settings'} 
-            onClick={() => setActiveTab('Settings')} 
-          />
-        </nav>
-      </aside>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowJoin(true)}
+            className="flex items-center gap-2 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-sm font-medium transition"
+          >
+            <Link2 size={16} />
+            Join with Code
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+          >
+            <Plus size={16} />
+            New Meeting
+          </button>
+        </div>
+      </div>
 
-      {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        
-        {/* HEADER */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
-          <div>
-            <h1 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
-              {activeTab} - Industry Edition
-            </h1>
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        {[
+          { label: 'Total Meetings', value: meetings.length, color: 'text-white' },
+          { label: 'Active Now', value: active.length, color: 'text-green-400' },
+          { label: 'Scheduled', value: scheduled.length, color: 'text-blue-400' },
+          { label: 'Completed', value: ended.length, color: 'text-slate-400' },
+        ].map(s => (
+          <div key={s.label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <p className="text-slate-500 text-xs mb-1">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
           </div>
-          <div className="flex items-center gap-4">
-            {/* AI TRIGGER BUTTON */}
-            <button 
-                onClick={handleAiGeneration}
-                disabled={isAiLoading}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-md hover:opacity-90 transition disabled:opacity-50"
-            >
-              {isAiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Generate AI Report
-            </button>
-            <div className="relative">
-              <Search className="absolute left-3 top-2 text-slate-400" size={16} />
-              <input type="text" placeholder="Search..." className="bg-slate-100 rounded-lg py-1.5 pl-10 pr-4 text-sm w-64 outline-none focus:ring-2 ring-blue-500/20 text-slate-900" />
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search meetings..."
+          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+        />
+      </div>
+
+      {/* Meeting sections */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="animate-spin text-blue-500" size={32} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <Video size={48} className="mx-auto text-slate-700 mb-4" />
+          <p className="text-slate-400 font-medium">No meetings yet</p>
+          <p className="text-slate-600 text-sm mt-1">Create a meeting to get started</p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {active.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3">● Live Now</h2>
+              <div className="space-y-3">{active.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
+            </section>
+          )}
+          {scheduled.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Scheduled</h2>
+              <div className="space-y-3">{scheduled.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
+            </section>
+          )}
+          {ended.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Past Meetings</h2>
+              <div className="space-y-3">{ended.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold text-white mb-5">New Meeting</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-300 mb-1.5">Meeting Title *</label>
+                <input
+                  value={newMeeting.title}
+                  onChange={e => setNewMeeting({ ...newMeeting, title: e.target.value })}
+                  placeholder="e.g. Sprint Planning"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-300 mb-1.5">Description (optional)</label>
+                <textarea
+                  value={newMeeting.description}
+                  onChange={e => setNewMeeting({ ...newMeeting, description: e.target.value })}
+                  placeholder="What's this meeting about?"
+                  rows={3}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowCreate(false)}
+                className="flex-1 border border-slate-700 text-slate-300 py-2.5 rounded-xl hover:bg-slate-800 transition text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={() => createMut.mutate(newMeeting)}
+                disabled={!newMeeting.title || createMut.isPending}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-2.5 rounded-xl transition text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                {createMut.isPending ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
+                Create & Start
+              </button>
             </div>
           </div>
-        </header>
-
-        {/* CONDITIONALLY RENDER VIEWS */}
-        <div className="flex-1 overflow-y-auto p-8">
-            {activeTab === 'Dashboard' ? (
-                <div className="flex gap-6 h-full">
-                    {/* LEFT COLUMN */}
-                    <div className="flex-[2] space-y-6">
-                        <section className="flex justify-between items-end">
-                            <h2 className="text-2xl font-bold text-slate-700">Enterprisers <span className="font-normal text-slate-400">- April 2026</span></h2>
-                            <div className="flex -space-x-2">
-                                {[1,2,3,4].map(i => <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-300 overflow-hidden"><img src={`https://i.pravatar.cc/150?u=${i}`} alt="user"/></div>)}
-                            </div>
-                        </section>
-
-                        <div className="bg-[#111827] rounded-2xl overflow-hidden shadow-xl">
-                            <div className="p-4 flex justify-between text-white border-b border-white/10">
-                                <span className="font-medium">Sprint Sync - March 24</span>
-                                <div className="flex gap-3"><Share2 size={18}/></div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1 p-2 h-64 bg-black/40">
-                                <VideoFeed name="@User" />
-                                <VideoFeed name="@User" />
-                                <VideoFeed name="@Intern" />
-                            </div>
-                            <div className="p-4 bg-slate-900/50">
-                                <div className="h-1 bg-white/20 rounded-full w-full relative mb-4">
-                                    <div className="absolute h-full bg-blue-500 w-1/3 rounded-full"></div>
-                                </div>
-                                <div className="flex items-center justify-between text-white/80">
-                                    <div className="flex items-center gap-4 text-sm">
-                                        <Play size={20} fill="white"/> <Volume2 size={20}/> <span>0:00 / 12:24</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <span className="bg-blue-600 px-3 py-1 rounded text-xs flex items-center gap-1 cursor-pointer"><ClipboardList size={14}/> Tasks</span>
-                                        <span className="bg-emerald-600 px-3 py-1 rounded text-xs flex items-center gap-1 cursor-pointer"><CheckCircle2 size={14}/> Decisions</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* AI INTELLIGENCE */}
-                        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm relative overflow-hidden">
-                            {isAiLoading && (
-                                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-10">
-                                    <Loader2 className="animate-spin text-blue-600" />
-                                </div>
-                            )}
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-lg">AI Meeting Intelligence</h3>
-                                <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full border border-emerald-100">Sentiment: Productive</span>
-                            </div>
-                            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-4">
-                                <h4 className="font-bold text-sm text-blue-900 mb-2 underline">Executive Summary</h4>
-                                <ul className="text-sm space-y-2 text-slate-600">
-                                    {summaryPoints.map((point, index) => (
-                                        <li key={index}>• {point}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT COLUMN */}
-                    <div className="flex-1 space-y-4">
-                        <div className="bg-white border border-slate-200 rounded-xl h-full shadow-sm flex flex-col">
-                            <div className="flex border-b text-xs">
-                                <button className="flex-1 p-4 font-bold border-b-2 border-blue-600">Realtime collaboration</button>
-                                <button className="flex-1 p-4 text-slate-400 hover:text-slate-600">Live Transcript</button>
-                            </div>
-                            <div className="p-6 flex-1 overflow-y-auto">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold text-slate-800 text-sm">Smart Action Items</h3>
-                                    <button className="bg-slate-800 text-white text-[10px] px-2 py-1.5 rounded-md font-bold">Sync to Jira</button>
-                                </div>
-                                <div className="space-y-6">
-                                    {tasks.map(task => (
-                                        <TaskItem 
-                                            key={task.id} 
-                                            label={task.label} 
-                                            user={task.user} 
-                                            date={task.date} 
-                                            completed={task.completed} 
-                                            onToggle={() => toggleTask(task.id)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="p-4">
-                                <button className="w-full bg-[#1e293b] text-white py-2.5 rounded-lg text-sm font-bold hover:bg-slate-700 transition">
-                                    Export to Project Board
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                    <div className="bg-slate-100 p-6 rounded-full mb-4">
-                        <ClipboardList size={48} className="text-slate-400" />
-                    </div>
-                    <h2 className="text-xl font-bold text-slate-700">{activeTab} Section</h2>
-                    <p className="text-slate-500 max-w-sm">This module is coming in the Week 3 final push.</p>
-                </div>
-            )}
         </div>
-      </main>
+      )}
+
+      {/* Join Modal */}
+      {showJoin && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6">
+            <h2 className="text-xl font-bold text-white mb-5">Join Meeting</h2>
+            <input
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="Enter 8-digit code (e.g. AB12CD34)"
+              maxLength={8}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition font-mono text-center text-lg tracking-widest mb-2"
+            />
+            {joinMut.isError && (
+              <p className="text-red-400 text-sm mb-3">{(joinMut.error as any)?.response?.data?.message}</p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowJoin(false)}
+                className="flex-1 border border-slate-700 text-slate-300 py-2.5 rounded-xl hover:bg-slate-800 transition text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={() => joinMut.mutate()}
+                disabled={joinCode.length < 6 || joinMut.isPending}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white py-2.5 rounded-xl transition text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                {joinMut.isPending ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}
+                Join
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
-};
-
-/* --- HELPER COMPONENTS (Keep these at the bottom) --- */
-const NavItem = ({ icon, label, active = false, onClick }: { icon: any, label: string, active?: boolean, onClick?: () => void }) => (
-  <div 
-    onClick={onClick}
-    className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition ${
-      active ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-500 hover:bg-slate-50'
-    }`}
-  >
-    {icon} <span>{label}</span>
-  </div>
-);
-
-const VideoFeed = ({ name }: { name: string }) => (
-  <div className="relative bg-slate-800 rounded-lg overflow-hidden border border-white/5">
-    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" className="w-full h-full object-cover opacity-80" alt="user"/>
-    <span className="absolute bottom-2 left-2 bg-black/50 text-[10px] text-white px-2 py-0.5 rounded">{name}</span>
-  </div>
-);
-
-const TaskItem = ({ label, user, date, completed, onToggle }: { label: string, user: string, date: string, completed: boolean, onToggle: () => void }) => (
-  <div className="flex items-start gap-3">
-    <input 
-      type="checkbox" 
-      checked={completed} 
-      onChange={onToggle}
-      className="mt-1.5 rounded border-slate-300 text-blue-600" 
-    />
-    <div className="flex-1">
-      <p className={`text-sm font-medium leading-tight mb-1 ${completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{label}</p>
-      <div className="flex justify-between items-center text-[11px] text-slate-400">
-        <span className="flex items-center gap-1"><span className="w-4 h-4 bg-slate-200 rounded-full"></span>{user}</span>
-        <span>{date}</span>
-      </div>
-    </div>
-  </div>
-);
-
-export default Dashboard;
+  )
+}
