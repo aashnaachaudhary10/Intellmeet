@@ -8,7 +8,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -32,13 +31,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { token } = useAuthStore();
+
+  if (token) return <Navigate to="/app/dashboard" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   const { token, setUser, logout } = useAuthStore();
 
   useEffect(() => {
     if (token) {
       getMe()
-        .then((res) => setUser(res.data.user, token))
+        .then((res) => setUser(res.data.user || res.data, token))
         .catch(() => logout());
     }
   }, [token, setUser, logout]);
@@ -54,9 +60,9 @@ export default function App() {
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
             {/* Protected layout routes */}
             <Route

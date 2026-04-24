@@ -20,6 +20,7 @@ const navItems = [
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const userInitial = user?.name?.[0]?.toUpperCase() || "U";
 
   const handleLogout = async () => {
     try {
@@ -33,7 +34,7 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+      <aside className="sticky top-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         {/* Logo */}
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -70,8 +71,16 @@ export default function Layout() {
         {/* User */}
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold">
-              {user?.name?.[0]?.toUpperCase() || "U"}
+            <div className="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden ring-1 ring-slate-700">
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={`${user?.name || "User"} avatar`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                userInitial
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{user?.name}</p>
@@ -92,7 +101,7 @@ export default function Layout() {
       </aside>
 
       {/* Main Page Content */}
-      <main className="flex-1 overflow-y-auto bg-slate-950">
+      <main className="flex-1 overflow-y-auto bg-slate-950 text-[15px] leading-6">
         <Outlet />
       </main>
     </div>

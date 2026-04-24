@@ -85,7 +85,7 @@ export default function MeetingRoom() {
         setLoading(false)
       } catch (err) {
         console.error(err)
-        navigate('/dashboard')
+        navigate('/app/dashboard')
       }
     }
 
@@ -197,7 +197,7 @@ export default function MeetingRoom() {
 
     socket.on('meeting-ended', () => {
       cleanup()
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     })
 
     return () => {
@@ -397,11 +397,11 @@ export default function MeetingRoom() {
   return (
     <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between gap-4 border-b border-slate-800 bg-slate-900 px-4 py-3 md:px-6">
         <div>
-          <h1 className="font-semibold text-white text-sm">{meeting?.title}</h1>
+          <h1 className="truncate text-sm font-semibold text-white">{meeting?.title}</h1>
           <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-xs text-green-400">● Live</span>
+            <span className="text-xs text-green-400">Live</span>
             <button onClick={copyCode} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition">
               <Copy size={11} />
               {copied ? 'Copied!' : meeting?.meetingCode}
@@ -423,13 +423,13 @@ export default function MeetingRoom() {
       </div>
 
       {/* Main area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Video grid */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          <div className={`grid gap-3 h-full ${
+        <div className="flex-1 overflow-y-auto p-3 pb-24 md:p-4">
+          <div className={`grid gap-4 h-full ${
             totalParticipants === 1 ? 'grid-cols-1' :
-            totalParticipants <= 2 ? 'grid-cols-2' :
-            totalParticipants <= 4 ? 'grid-cols-2' : 'grid-cols-3'
+            totalParticipants <= 2 ? 'grid-cols-1 md:grid-cols-2' :
+            totalParticipants <= 4 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
           }`}>
             {/* Local video */}
             <div className="relative bg-slate-800 rounded-xl overflow-hidden aspect-video">
@@ -457,7 +457,7 @@ export default function MeetingRoom() {
 
         {/* Right panel */}
         {showChat && (
-          <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col">
+          <div className="flex w-full max-w-sm flex-col border-l border-slate-800 bg-slate-900">
             {/* Tabs */}
             <div className="flex border-b border-slate-800">
               <button className="flex-1 py-3 text-xs font-medium text-blue-400 border-b-2 border-blue-500">
@@ -504,7 +504,7 @@ export default function MeetingRoom() {
                   onChange={handleTyping}
                   onKeyDown={e => e.key === 'Enter' && sendMessage()}
                   placeholder="Message..."
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                 />
                 <button onClick={sendMessage}
                   className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition">
@@ -542,7 +542,7 @@ export default function MeetingRoom() {
                   <ul className="space-y-1">
                     {aiSummary.keyPoints.map((p: string, i: number) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
-                        <span className="text-blue-400 mt-0.5">•</span> {p}
+                        <span className="text-blue-400 mt-0.5">-</span> {p}
                       </li>
                     ))}
                   </ul>
@@ -557,7 +557,7 @@ export default function MeetingRoom() {
                       <div key={i} className="bg-slate-800 rounded-lg p-3 flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm text-white">{item.task}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">→ {item.assignee}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Assigned to {item.assignee}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
                           item.priority === 'high' ? 'bg-red-900/40 text-red-400' :
@@ -574,35 +574,37 @@ export default function MeetingRoom() {
         </div>
       )}
 
-      {/* Controls bar */}
-      <div className="bg-slate-900 border-t border-slate-800 px-6 py-4">
-        <div className="flex items-center justify-center gap-4">
-          <button onClick={toggleMute}
-            className={`p-3 rounded-full transition ${isMuted ? 'bg-red-600 hover:bg-red-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            {isMuted ? <MicOff size={20} className="text-white" /> : <Mic size={20} className="text-white" />}
-          </button>
+      {/* Controls bar (Floating Dock) */}
+      <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-800 bg-slate-900/90 px-3 py-3 shadow-2xl backdrop-blur md:bottom-6 md:gap-4 md:px-6">
+        <button onClick={toggleMute}
+          className={`p-3 rounded-full transition ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          {isMuted ? <MicOff size={20} className="text-white" /> : <Mic size={20} className="text-white" />}
+        </button>
 
-          <button onClick={toggleVideo}
-            className={`p-3 rounded-full transition ${isVideoOff ? 'bg-red-600 hover:bg-red-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            {isVideoOff ? <VideoOff size={20} className="text-white" /> : <Video size={20} className="text-white" />}
-          </button>
+        <button onClick={toggleVideo}
+          className={`p-3 rounded-full transition ${isVideoOff ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          {isVideoOff ? <VideoOff size={20} className="text-white" /> : <Video size={20} className="text-white" />}
+        </button>
 
-          <button onClick={toggleScreen}
-            className={`p-3 rounded-full transition ${isSharing ? 'bg-green-600 hover:bg-green-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            {isSharing ? <MonitorOff size={20} className="text-white" /> : <Monitor size={20} className="text-white" />}
-          </button>
+        <button onClick={toggleScreen}
+          className={`p-3 rounded-full transition ${isSharing ? 'bg-green-600 hover:bg-green-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
+          {isSharing ? <MonitorOff size={20} className="text-white" /> : <Monitor size={20} className="text-white" />}
+        </button>
 
-          <button onClick={() => setShowChat(!showChat)}
-            className={`p-3 rounded-full transition ${showChat ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            <MessageSquare size={20} className="text-white" />
-          </button>
+        <button onClick={() => setShowChat(!showChat)}
+          className={`p-3 rounded-full transition ${showChat ? 'bg-slate-200 text-slate-900' : 'bg-slate-700 text-white hover:bg-slate-600'}`}>
+          <MessageSquare size={20} className={showChat ? 'text-slate-900' : 'text-white'} />
+        </button>
 
-          <button onClick={leaveMeeting}
-            className="p-3 rounded-full bg-red-600 hover:bg-red-500 transition ml-4">
-            <PhoneOff size={20} className="text-white" />
-          </button>
-        </div>
+        <div className="w-px h-8 bg-slate-700 mx-2"></div>
+
+        <button onClick={leaveMeeting}
+          className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 transition flex items-center gap-2 font-medium">
+          <PhoneOff size={20} className="text-white" />
+          <span className="text-white text-sm">End</span>
+        </button>
       </div>
     </div>
   )
 }
+

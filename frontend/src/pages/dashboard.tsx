@@ -66,15 +66,15 @@ export default function Dashboard() {
       ended: 'bg-slate-700 text-slate-400 border-slate-600'
     }
     return (
-      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${map[safeStatus] || map.active}`}>
-        {safeStatus === 'active' ? '● Live' : safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
+      <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${map[safeStatus] || map.active}`}>
+        {safeStatus === 'active' ? 'Live' : safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
       </span>
     )
   }
 
   const MeetingCard = ({ meeting }: { meeting: any }) => (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 hover:border-slate-700 transition group">
-      <div className="flex items-start justify-between gap-3">
+    <div className="group rounded-xl border border-slate-800 bg-slate-900 p-4 transition hover:border-slate-700 hover:bg-slate-900/80">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-white truncate">{meeting.title}</h3>
@@ -83,7 +83,7 @@ export default function Dashboard() {
           {meeting.description && (
             <p className="text-sm text-slate-400 truncate mb-2">{meeting.description}</p>
           )}
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <Calendar size={12} />
               {format(new Date(meeting.createdAt), 'MMM d, yyyy')}
@@ -105,7 +105,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 opacity-100 transition xl:opacity-0 xl:group-hover:opacity-100">
           {meeting.status !== 'ended' && (
             <button
               onClick={() => navigate(`/room/${meeting._id}`)}
@@ -129,7 +129,7 @@ export default function Dashboard() {
             </button>
           )}
           <button
-            onClick={() => navigate(`/meeting/${meeting._id}`)}
+            onClick={() => navigate(`/app/meeting/${meeting._id}`)}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
           >
             <ExternalLink size={15} />
@@ -158,16 +158,16 @@ export default function Dashboard() {
   )
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-6xl px-6 py-8 md:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0]} 👋
+            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'there'}
           </h1>
-          <p className="text-slate-400 mt-1">Manage your meetings and collaborations</p>
+          <p className="mt-1 text-sm text-slate-400">Manage your meetings and collaborations.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowJoin(true)}
             className="flex items-center gap-2 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white px-4 py-2.5 rounded-xl text-sm font-medium transition"
@@ -186,15 +186,15 @@ export default function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { label: 'Total Meetings', value: meetings.length, color: 'text-white' },
           { label: 'Active Now', value: active.length, color: 'text-green-400' },
           { label: 'Scheduled', value: scheduled.length, color: 'text-blue-400' },
           { label: 'Completed', value: ended.length, color: 'text-slate-400' },
         ].map(s => (
-          <div key={s.label} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <p className="text-slate-500 text-xs mb-1">{s.label}</p>
+          <div key={s.label} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{s.label}</p>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -207,7 +207,7 @@ export default function Dashboard() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search meetings..."
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+          className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
         />
       </div>
 
@@ -226,7 +226,7 @@ export default function Dashboard() {
         <div className="space-y-8">
           {active.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3">● Live Now</h2>
+              <h2 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3">Live Now</h2>
               <div className="space-y-3">{active.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
             </section>
           )}
@@ -263,7 +263,7 @@ export default function Dashboard() {
                   value={newMeeting.title}
                   onChange={e => setNewMeeting({ ...newMeeting, title: e.target.value })}
                   placeholder="e.g. Sprint Planning"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
                 />
               </div>
               <div>
@@ -273,7 +273,7 @@ export default function Dashboard() {
                   onChange={e => setNewMeeting({ ...newMeeting, description: e.target.value })}
                   placeholder="What's this meeting about?"
                   rows={3}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition resize-none"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition resize-none"
                 />
               </div>
             </div>
@@ -305,7 +305,7 @@ export default function Dashboard() {
               onChange={e => setJoinCode(e.target.value.toUpperCase())}
               placeholder="Enter 8-digit code (e.g. AB12CD34)"
               maxLength={8}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition font-mono text-center text-lg tracking-widest mb-2"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition font-mono text-center text-lg tracking-widest mb-2"
             />
             {joinMut.isError && (
               <p className="text-red-400 text-sm mb-3">{(joinMut.error as any)?.response?.data?.message}</p>
@@ -330,3 +330,4 @@ export default function Dashboard() {
     </div>
   )
 }
+

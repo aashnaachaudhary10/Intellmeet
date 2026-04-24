@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 
 interface User {
+  _id?: string
   id: string
   name: string
   email: string
-  avatar: string
-  role: string
+  avatar?: string
+  role?: string
 }
 
 interface AuthStore {
@@ -22,8 +23,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
   token: localStorage.getItem('token'),
   isLoading: false,
   setUser: (user, token) => {
+    const normalizedUser = {
+      ...user,
+      id: user.id || user._id || '',
+      avatar: user.avatar || '',
+      role: user.role || 'member',
+    }
     localStorage.setItem('token', token)
-    set({ user, token })
+    set({ user: normalizedUser, token })
   },
   setLoading: (isLoading) => set({ isLoading }),
   logout: () => {
