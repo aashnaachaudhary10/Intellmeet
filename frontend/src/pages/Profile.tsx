@@ -7,13 +7,20 @@ import { User, Mail, Shield, Save, Loader2, CheckCircle } from 'lucide-react'
 export default function Profile() {
   const { user, setUser, token } = useAuthStore()
   const [name, setName] = useState(user?.name || '')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
 
   const updateMut = useMutation({
-    mutationFn: () => updateProfile({ name }),
+    mutationFn: () => {
+      const formData = new FormData()
+      formData.append('name', name)
+      if (avatarFile) formData.append('avatar', avatarFile)
+      return updateProfile(formData)
+    },
     onSuccess: (res) => {
       setUser(res.data.user, token!)
       setSaved(true)
+      setAvatarFile(null)
       setTimeout(() => setSaved(false), 2500)
     }
   })
@@ -26,15 +33,43 @@ export default function Profile() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
         <h2 className="font-semibold text-white mb-4">Your Profile</h2>
         <div className="flex items-center gap-5">
-          <div className="w-20 h-20 bg-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold text-white">
-            {user?.name?.[0]?.toUpperCase()}
+          <div className="w-20 h-20 bg-blue-700 rounded-2xl flex items-center justify-center text-3xl font-bold text-white overflow-hidden shrink-0">
+            {avatarFile ? (
+              <img src={URL.createObjectURL(avatarFile)} alt="Avatar Preview" className="w-full h-full object-cover" />
+            ) : user?.avatar ? (
+              <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              user?.name?.[0]?.toUpperCase()
+            )}
           </div>
           <div>
             <p className="text-white font-semibold text-lg">{user?.name}</p>
-            <p className="text-slate-400 text-sm">{user?.email}</p>
-            <span className="inline-block mt-1 text-xs bg-blue-900/40 text-blue-400 border border-blue-800 px-2 py-0.5 rounded-full capitalize">
-              {user?.role}
-            </span>
+            <p className="text-slate-400 text-sm mb-2">{user?.email}</p>
+            
+            <div className="flex items-center gap-3">
+              <span className="inline-block text-xs bg-blue-900/40 text-blue-400 border border-blue-800 px-2 py-0.5 rounded-full capitalize">
+                {user?.role}
+              </span>
+              <label className="cursor-pointer text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-lg border border-slate-700 transition inline-block">
+                Upload Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => setAvatarFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              {avatarFile && (
+                <button
+                  onClick={() => updateMut.mutate()}
+                  disabled={updateMut.isPending}
+                  className="text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg font-semibold transition flex items-center gap-1"
+                >
+                  {updateMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save Avatar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -67,7 +102,7 @@ export default function Profile() {
         </div>
         <button
           onClick={() => updateMut.mutate()}
-          disabled={updateMut.isPending || name === user?.name}
+          disabled={updateMut.isPending || (name === user?.name && !avatarFile)}
           className="mt-5 flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition"
         >
           {updateMut.isPending

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const API = axios.create({
-  baseURL: '/api',
+  baseURL: 'http://localhost:5000/api',
   timeout: 10000
 })
 
@@ -56,7 +56,10 @@ export const deleteTask = (id: string) => API.delete(`/tasks/${id}`)
 // ── Users ─────────────────────────────────────────────
 export const getUsers = () => API.get('/users')
 export const getProfile = () => API.get('/users/profile')
-export const updateProfile = (data: any) => API.put('/users/profile', data)
+export const updateProfile = (data: FormData | any) => {
+  // If it's pure FormData (for file uploads), Axios sets the correct multipart/form-data headers automatically.
+  return API.put('/auth/update', data)
+}
 
 // ── AI ────────────────────────────────────────────────
 export const summarizeMeeting = (transcript: string, meetingId?: string) =>

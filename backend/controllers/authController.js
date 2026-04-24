@@ -61,15 +61,29 @@ export const getMe = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, avatar } = req.body;
+    const { name } = req.body;
+    let avatarUrl;
 
-const user = await User.findByIdAndUpdate(
-  req.user.id,
-  { name, avatar },
-  { new: true }
-).select("-password");
+    if (req.file && req.file.path) {
+      avatarUrl = req.file.path; // Cloudinary assigns the uploaded URL here
+    } else {
+      // If no file was uploaded but user provided a string fallback
+      avatarUrl = req.body.avatar; 
+    }
 
-    res.json(user);
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (name) user.name = name;
+    if (avatarUrl) user.avatar = avatarUrl;
+
+    await user.save();
+    
+    // Remove password before sending
+    const updatedUser = user.toObject();
+    delete updatedUser.password;
+
+    res.json({ message: "Profile updated", user: updatedUser });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
