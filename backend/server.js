@@ -37,20 +37,104 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
+// Store participants in memory: roomId -> map of socketId -> participant info
+const rooms = new Map();
+
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("joinRoom", (roomId) => {
+  socket.on("join-room", ({ roomId, userId, userName }) => {
     socket.join(roomId);
-    console.log(`User joined room ${roomId}`);
+    socket.roomId = roomId;
+    socket.userId = userId;
+    socket.userName = userName;
+    
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, new Map());
+    }
+    const room = rooms.get(roomId);
+    
+    // Notify others in the room
+    socket.to(roomId).emit("user-joined", { socketId: socket.id, userId, userName });
+    
+    // Add current user to room state
+    room.set(socket.id, { socketId: socket.id, userId, userName, isMuted: false, isVideoOff: false });
+
+    // Send existing participants to the new user
+    const participants = Array.from(room.values()).filter(p => p.socketId !== socket.id);
+    socket.emit("room-participants", participants);
+    
+    console.log(`User ${userName} (${socket.id}) joined room ${roomId}`);
   });
 
-  socket.on("sendMessage", ({ roomId, message }) => {
-    io.to(roomId).emit("receiveMessage", message);
+  socket.on("webrtc-offer", ({ to, offer, from, fromName }) => {
+    io.to(to).emit("webrtc-offer", { offer, from, fromName });
+  });
+
+  socket.on("webrtc-answer", ({ to, answer }) => {
+    // Frontend sends answer without 'from', but it needs it on receive, so we inject socket.id
+    io.to(to).emit("webrtc-answer", { answer, from: socket.id });
+  });
+
+  socket.on("ice-candidate", ({ to, candidate }) => {
+    io.to(to).emit("ice-candidate", { candidate, from: socket.id });
+  });
+
+  socket.on("send-message", (msgPayload) => {
+    // msgPayload contains: roomId, message, userId, userName, meetingId
+    const message = {
+      id: Date.now().toString(),
+      message: msgPayload.message,
+      userId: msgPayload.userId,
+      userName: msgPayload.userName,
+      timestamp: new Date().toISOString()
+    };
+    io.to(msgPayload.roomId).emit("receive-message", message);
+  });
+
+  socket.on("typing-start", ({ roomId, userName }) => {
+    socket.to(roomId).emit("user-typing", { userName, isTyping: true });
+  });
+
+  socket.on("typing-stop", ({ roomId, userName }) => {
+    socket.to(roomId).emit("user-typing", { userName, isTyping: false });
+  });
+
+  socket.on("toggle-audio", ({ roomId, userId, isMuted }) => {
+    // Optionally update room state
+    if (rooms.has(roomId) && rooms.get(roomId).has(socket.id)) {
+      rooms.get(roomId).get(socket.id).isMuted = isMuted;
+    }
+    // Broadcast if needed, frontend might not have listener yet but good to have
+    socket.to(roomId).emit("user-toggled-audio", { socketId: socket.id, isMuted });
+  });
+
+  socket.on("toggle-video", ({ roomId, userId, isVideoOff }) => {
+    if (rooms.has(roomId) && rooms.get(roomId).has(socket.id)) {
+      rooms.get(roomId).get(socket.id).isVideoOff = isVideoOff;
+    }
+    socket.to(roomId).emit("user-toggled-video", { socketId: socket.id, isVideoOff });
+  });
+
+  socket.on("end-meeting", ({ roomId }) => {
+    io.to(roomId).emit("meeting-ended");
+    rooms.delete(roomId);
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected");
+    console.log("User disconnected:", socket.id);
+    const roomId = socket.roomId;
+    
+    if (roomId && rooms.has(roomId)) {
+      rooms.get(roomId).delete(socket.id);
+      
+      // Clean up empty rooms
+      if (rooms.get(roomId).size === 0) {
+        rooms.delete(roomId);
+      }
+      
+      socket.to(roomId).emit("user-left", { socketId: socket.id, userName: socket.userName });
+    }
   });
 });
 
