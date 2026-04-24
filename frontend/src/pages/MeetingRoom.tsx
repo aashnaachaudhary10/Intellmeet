@@ -56,6 +56,13 @@ export default function MeetingRoom() {
 
   const roomId = id!
 
+  // ── Sync local stream to video element when loading finishes ───────────────────
+  useEffect(() => {
+    if (!loading && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current
+    }
+  }, [loading])
+
   // ── Init meeting & media ─────────────────────────────────────────
   useEffect(() => {
     let mounted = true
@@ -255,7 +262,17 @@ export default function MeetingRoom() {
       screenStreamRef.current?.getTracks().forEach(t => t.stop())
       setIsSharing(false)
       socket.emit('screen-share-stop', { roomId, userId: user?.id })
-      await setupMedia()
+      
+      if (localVideoRef.current && localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current
+      }
+      peersRef.current.forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video')
+        if (sender && localStreamRef.current) {
+          const videoTrack = localStreamRef.current.getVideoTracks()[0]
+          if (videoTrack) sender.replaceTrack(videoTrack)
+        }
+      })
     } else {
       try {
         const screen = await navigator.mediaDevices.getDisplayMedia({ video: true })
@@ -267,8 +284,24 @@ export default function MeetingRoom() {
         })
         setIsSharing(true)
         socket.emit('screen-share-start', { roomId, userId: user?.id })
-        screen.getVideoTracks()[0].onended = () => toggleScreen()
-      } catch {}
+        
+        screen.getVideoTracks()[0].onended = () => {
+          setIsSharing(false)
+          socket.emit('screen-share-stop', { roomId, userId: user?.id })
+          if (localVideoRef.current && localStreamRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current
+          }
+          peersRef.current.forEach(pc => {
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video')
+            if (sender && localStreamRef.current) {
+              const videoTrack = localStreamRef.current.getVideoTracks()[0]
+              if (videoTrack) sender.replaceTrack(videoTrack)
+            }
+          })
+        }
+      } catch (err) {
+        console.warn('Screen sharing cancelled or failed', err)
+      }
     }
   }
 

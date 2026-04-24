@@ -50,22 +50,24 @@ export default function Dashboard() {
 
   const meetings = data || []
   const filtered = meetings.filter((m: any) =>
-    m.title.toLowerCase().includes(search.toLowerCase())
+    m.title?.toLowerCase().includes(search.toLowerCase())
   )
 
   const active = filtered.filter((m: any) => m.status === 'active')
   const scheduled = filtered.filter((m: any) => m.status === 'scheduled')
   const ended = filtered.filter((m: any) => m.status === 'ended')
+  const other = filtered.filter((m: any) => !['active', 'scheduled', 'ended'].includes(m.status))
 
   const StatusBadge = ({ status }: { status: string }) => {
+    const safeStatus = status || 'active';
     const map: any = {
       active: 'bg-green-500/20 text-green-400 border-green-500/30',
       scheduled: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
       ended: 'bg-slate-700 text-slate-400 border-slate-600'
     }
     return (
-      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${map[status]}`}>
-        {status === 'active' ? '● Live' : status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${map[safeStatus] || map.active}`}>
+        {safeStatus === 'active' ? '● Live' : safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
       </span>
     )
   }
@@ -111,6 +113,19 @@ export default function Dashboard() {
             >
               <Video size={13} />
               {meeting.status === 'active' ? 'Join' : 'Start'}
+            </button>
+          )}
+          {meeting.meetingCode && (
+            <button
+              onClick={() => {
+                setJoinCode(meeting.meetingCode);
+                setShowJoin(true);
+              }}
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition"
+              title="Join using meeting code"
+            >
+              <Link2 size={13} />
+              Join
             </button>
           )}
           <button
@@ -225,6 +240,12 @@ export default function Dashboard() {
             <section>
               <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Past Meetings</h2>
               <div className="space-y-3">{ended.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
+            </section>
+          )}
+          {other.length > 0 && (
+            <section>
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Other Meetings</h2>
+              <div className="space-y-3">{other.map((m: any) => <MeetingCard key={m._id} meeting={m} />)}</div>
             </section>
           )}
         </div>
