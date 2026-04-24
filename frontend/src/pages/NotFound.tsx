@@ -1,24 +1,23 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useNavigate } from 'react-router-dom'
+import { Bot, Home } from 'lucide-react'
 
-const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
-
+export default function NotFound() {
+  const navigate = useNavigate()
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+        <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-800 rounded-3xl mb-6">
+          <Bot size={40} className="text-slate-500" />
+        </div>
+        <h1 className="text-6xl font-bold text-white mb-3">404</h1>
+        <p className="text-slate-400 text-lg mb-8">Oops! This page doesn't exist.</p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold transition"
+        >
+          <Home size={18} /> Back to Dashboard
+        </button>
       </div>
     </div>
-  );
-};
-
-export default NotFound;
+  )
+}
