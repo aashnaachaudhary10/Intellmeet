@@ -8,7 +8,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import Auth from "./pages/auth";
+import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -67,11 +67,11 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="meeting/:id" element={<MeetingDetail />} />
-              <Route path="kanban" element={<KanbanBoard />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="profile" element={<Profile />} />
+              <Route path="/app/dashboard" element={<Dashboard />} />
+              <Route path="/app/meeting/:id" element={<MeetingDetail />} />
+              <Route path="/app/kanban" element={<KanbanBoard />} />
+              <Route path="/app/analytics" element={<Analytics />} />
+              <Route path="/app/profile" element={<Profile />} />
             </Route>
 
             {/* Fullscreen room */}
