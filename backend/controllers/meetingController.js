@@ -1,15 +1,24 @@
-const Meeting = require("../models/Meeting.js");
+import Meeting from "../models/Meeting.js";
 
 //  Create Meeting
-module.exports.createMeeting = async (req, res) => {
+export const createMeeting = async (req, res) => {
   try {
-    const { title, date, time, host } = req.body;
+    const { title, description, scheduledTime } = req.body;
+    
+    // Auto-generate meeting code
+    const meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Determine host from JWT middleware
+    const host = req.user?.name || "Host";
 
     const newMeeting = new Meeting({
-      title,
-      date,
-      time,
+      title: title || "New Meeting",
+      description,
+      date: scheduledTime || new Date(),
+      time: scheduledTime || new Date(),
       host,
+      meetingCode,
+      participants: [host],
     });
 
     await newMeeting.save();
@@ -20,6 +29,7 @@ module.exports.createMeeting = async (req, res) => {
       meeting: newMeeting,
     });
   } catch (err) {
+    console.error("Create Meeting Error:", err);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -28,11 +38,13 @@ module.exports.createMeeting = async (req, res) => {
 };
 
 //  Join Meeting
-module.exports.joinMeeting = async (req, res) => {
+export const joinMeeting = async (req, res) => {
   try {
-    const { meetingId, userName } = req.body;
-
-    const meeting = await Meeting.findById(meetingId);
+    const { meetingCode, meetingId, userName } = req.body;
+    
+    // Look up by meetingCode first, otherwise fallback to meetingId if needed
+    const codeToSearch = meetingCode || meetingId;
+    const meeting = await Meeting.findOne({ meetingCode: codeToSearch });
 
     if (!meeting) {
       return res.status(404).json({
@@ -41,8 +53,10 @@ module.exports.joinMeeting = async (req, res) => {
       });
     }
 
-    meeting.participants.push(userName);
-    await meeting.save();
+    if (!meeting.participants.includes(userName)) {
+      meeting.participants.push(userName);
+      await meeting.save();
+    }
 
     res.status(200).json({
       success: true,
@@ -58,7 +72,7 @@ module.exports.joinMeeting = async (req, res) => {
 };
 
 //  Dashboard Data
-module.exports.getDashboardData = async (req, res) => {
+export const getDashboardData = async (req, res) => {
   try {
     const meetings = await Meeting.find().sort({ createdAt: -1 });
 
@@ -75,8 +89,33 @@ module.exports.getDashboardData = async (req, res) => {
   }
 };
 
+// Get Meeting By ID
+export const getMeetingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const meeting = await Meeting.findById(id);
+
+    if (!meeting) {
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      meeting,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Invalid Meeting ID or Server Error",
+    });
+  }
+};
+
 //  Delete Meeting
-module.exports.deleteMeeting = async (req, res) => {
+export const deleteMeeting = async (req, res) => {
   try {
     const { id } = req.params;
 

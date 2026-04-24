@@ -1,19 +1,22 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
+import authMiddleware from "../middleware/authMiddleware.js";
 
-const {
+import {
   createMeeting,
   joinMeeting,
   deleteMeeting,
   getDashboardData,
-} = require("../controllers/meetingController");
+  getMeetingById,
+} from "../controllers/meetingController.js";
 
-router.post("/create", createMeeting);
-router.post("/join", joinMeeting);
-router.delete("/delete/:id", deleteMeeting);
-router.get("/dashboard", getDashboardData);
+router.post("/create", authMiddleware, createMeeting);
+router.post("/join", authMiddleware, joinMeeting);
+router.delete("/delete/:id", authMiddleware, deleteMeeting);
+router.get("/dashboard", authMiddleware, getDashboardData);
+router.get("/:id", authMiddleware, getMeetingById);
 
-module.exports = router;
+export default router;
 
 
 

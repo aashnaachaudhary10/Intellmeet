@@ -33,17 +33,17 @@ export const getMe = () => API.get('/auth/me')
 export const logout = () => API.post('/auth/logout')
 
 // ── Meetings ──────────────────────────────────────────
-export const getMeetings = () => API.get('/meetings')
+export const getMeetings = () => API.get('/meetings/dashboard')
 export const getMeeting = (id: string) => API.get(`/meetings/${id}`)
 export const createMeeting = (data: { title: string; description?: string; scheduledTime?: string }) =>
-  API.post('/meetings', data)
-export const joinMeetingByCode = (code: string) => API.post(`/meetings/join/${code}`)
+  API.post('/meetings/create', data)
+export const joinMeetingByCode = (data: { meetingCode: string; userName: string }) => API.post(`/meetings/join`, data)
 export const startMeeting = (id: string) => API.patch(`/meetings/${id}/start`)
 export const endMeeting = (id: string) => API.patch(`/meetings/${id}/end`)
 export const saveTranscript = (id: string, transcript: string) =>
   API.patch(`/meetings/${id}/transcript`, { transcript })
 export const saveSummary = (id: string, data: any) => API.patch(`/meetings/${id}/summary`, data)
-export const deleteMeeting = (id: string) => API.delete(`/meetings/${id}`)
+export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
 // ── Tasks ─────────────────────────────────────────────
 export const getTasks = () => API.get('/tasks')

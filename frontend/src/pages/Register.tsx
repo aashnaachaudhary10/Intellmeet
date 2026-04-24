@@ -27,7 +27,7 @@ export default function Register() {
     try {
       const res = await signup({ name: form.name, email: form.email, password: form.password })
       setUser(res.data.user, res.data.token)
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed.')
     } finally {

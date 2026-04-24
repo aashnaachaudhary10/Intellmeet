@@ -19,7 +19,7 @@ export default function Login() {
     try {
       const res = await login(form)
       setUser(res.data.user, res.data.token)
-      navigate('/dashboard')
+      navigate('/app/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
     } finally {

@@ -22,7 +22,7 @@ export default function Dashboard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['meetings'],
-    queryFn: () => getMeetings().then(r => r.data.meetings)
+    queryFn: () => getMeetings().then(r => (Array.isArray(r.data) ? r.data : r.data?.meetings || []))
   })
 
   const createMut = useMutation({
@@ -36,7 +36,7 @@ export default function Dashboard() {
   })
 
   const joinMut = useMutation({
-    mutationFn: () => joinMeetingByCode(joinCode.trim().toUpperCase()),
+    mutationFn: () => joinMeetingByCode({ meetingCode: joinCode.trim().toUpperCase(), userName: user?.name || 'Guest' }),
     onSuccess: (res) => {
       setShowJoin(false)
       navigate(`/room/${res.data.meeting._id}`)
