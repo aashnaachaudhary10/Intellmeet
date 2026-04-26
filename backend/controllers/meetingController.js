@@ -1,4 +1,10 @@
 import Meeting from "../models/Meeting.js";
+import User from "../models/user.js";
+
+const calculateDurationMinutes = (startedAt, endedAt = new Date()) => {
+  if (!startedAt) return 0;
+  return Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000));
+};
 
 //  Create Meeting
 export const createMeeting = async (req, res) => {
@@ -8,17 +14,18 @@ export const createMeeting = async (req, res) => {
     // Auto-generate meeting code
     const meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // Determine host from JWT middleware
-    const host = req.user?.name || "Host";
+    const currentUser = req.user?.id ? await User.findById(req.user.id).select("name") : null;
+    const host = currentUser?.name || "Host";
 
     const newMeeting = new Meeting({
       title: title || "New Meeting",
       description,
-      date: scheduledTime || new Date(),
-      time: scheduledTime || new Date(),
       host,
       meetingCode,
       participants: [host],
+      recordingFolder: `meeting-${meetingCode}`,
+      startedAt: scheduledTime ? undefined : new Date(),
+      status: scheduledTime ? "scheduled" : "active",
     });
 
     await newMeeting.save();
@@ -34,6 +41,104 @@ export const createMeeting = async (req, res) => {
       success: false,
       message: err.message,
     });
+  }
+};
+
+export const startMeeting = async (req, res) => {
+  try {
+    const meeting = await Meeting.findById(req.params.id);
+    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+
+    meeting.status = "active";
+    if (!meeting.startedAt) meeting.startedAt = new Date();
+    await meeting.save();
+
+    res.status(200).json({ success: true, meeting });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const endMeeting = async (req, res) => {
+  try {
+    const meeting = await Meeting.findById(req.params.id);
+    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+
+    meeting.status = "ended";
+    meeting.endedAt = new Date();
+    meeting.duration = calculateDurationMinutes(meeting.startedAt, meeting.endedAt);
+    await meeting.save();
+
+    res.status(200).json({ success: true, meeting });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const saveTranscript = async (req, res) => {
+  try {
+    const { transcript } = req.body;
+    const meeting = await Meeting.findByIdAndUpdate(
+      req.params.id,
+      { transcript: transcript || "" },
+      { new: true }
+    );
+
+    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+    res.status(200).json({ success: true, meeting });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const saveSummary = async (req, res) => {
+  try {
+    const { summary, keyPoints = [], actionItems = [] } = req.body;
+    const meeting = await Meeting.findByIdAndUpdate(
+      req.params.id,
+      { summary: summary || "", keyPoints, actionItems },
+      { new: true, runValidators: true }
+    );
+
+    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+    res.status(200).json({ success: true, meeting });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const saveRecordingPart = async (req, res) => {
+  try {
+    const { key, url, name, size, partNumber, uploadedBy, uploadedByName, folder } = req.body;
+    
+    const existing = await Meeting.findOne({
+      _id: req.params.id,
+      "recordingParts.partNumber": partNumber
+    });
+
+    if (existing) {
+      return res.status(200).json({ success: true, meeting: existing });
+    }
+
+    const meeting = await Meeting.findByIdAndUpdate(req.params.id, {
+      $set: { recordingFolder: folder },
+      $push: {
+        recordingParts: {
+          key,
+          url,
+          name,
+          size,
+          partNumber,
+          uploadedBy,
+          uploadedByName,
+        },
+      },
+    }, { new: true });
+
+    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+    res.status(200).json({ success: true, meeting });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

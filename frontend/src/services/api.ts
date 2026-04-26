@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   timeout: 10000
 })
 
@@ -42,6 +44,8 @@ export const startMeeting = (id: string) => API.patch(`/meetings/${id}/start`)
 export const endMeeting = (id: string) => API.patch(`/meetings/${id}/end`)
 export const saveTranscript = (id: string, transcript: string) =>
   API.patch(`/meetings/${id}/transcript`, { transcript })
+export const saveRecordingPart = (id: string, data: any) =>
+  API.patch(`/meetings/${id}/recording-part`, data)
 export const saveSummary = (id: string, data: any) => API.patch(`/meetings/${id}/summary`, data)
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 

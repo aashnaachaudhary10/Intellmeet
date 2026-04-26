@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { getMeeting, startMeeting, endMeeting, summarizeMeeting } from '../services/api'
+import { API_BASE_URL, getMeeting, startMeeting, endMeeting, summarizeMeeting, saveTranscript, saveRecordingPart } from '../services/api'
 import { getSocket } from '../services/socket'
+import { genUploader } from 'uploadthing/client'
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff,
   MessageSquare, PhoneOff, Bot, Copy, Users, Loader2, Send, X
@@ -25,6 +26,12 @@ interface ChatMsg {
   timestamp: string
 }
 
+const { uploadFiles: uploadRecordingFiles } = genUploader<any>({
+  url: `${API_BASE_URL}/uploadthing`,
+})
+
+const MEETING_LIMIT_SECONDS = 120000
+
 export default function MeetingRoom() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuthStore()
@@ -38,6 +45,7 @@ export default function MeetingRoom() {
   const [isVideoOff, setIsVideoOff] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [showChat, setShowChat] = useState(true)
+  const [activePanelTab, setActivePanelTab] = useState<'chat' | 'transcript'>('chat')
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [msgInput, setMsgInput] = useState('')
   const [typingUsers, setTypingUsers] = useState<string[]>([])
@@ -45,6 +53,7 @@ export default function MeetingRoom() {
   const [aiSummary, setAiSummary] = useState<any>(null)
   const [loadingAI, setLoadingAI] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(MEETING_LIMIT_SECONDS)
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -53,6 +62,13 @@ export default function MeetingRoom() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const typingTimerRef = useRef<any>(null)
   const recognitionRef = useRef<any>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const aiRecorderActiveRef = useRef(false)
+  const aiRecorderTimerRef = useRef<any>(null)
+  const recordingPartRef = useRef(0)
+  const endingRef = useRef(false)
+  const limitStartedAtRef = useRef<number | null>(null)
 
   const roomId = id!
 
@@ -229,14 +245,34 @@ export default function MeetingRoom() {
         if (event.results[i].isFinal) final += event.results[i][0].transcript + ' '
       }
       if (final) {
-        setTranscript(prev => prev + `[${user?.name}]: ${final}\n`)
-        socket.emit('transcript-update', { roomId, text: `[${user?.name}]: ${final}` })
+        setTranscript(prev => prev + `[${user?.name || 'User'}]: ${final}\n`)
+        socket.emit('transcript-update', { roomId, meetingId: id, text: `[${user?.name || 'User'}]: ${final}` })
       }
     }
 
+    recognition.onend = () => {
+      // Auto-restart recognition to keep it running continuously
+      try { recognition.start() } catch (err) {}
+    }
+
     recognition.start()
-    return () => recognition.stop()
+    return () => {
+      recognition.onend = null;
+      recognition.stop()
+    }
   }, [])
+
+  useEffect(() => {
+    if (!id || !transcript.trim()) return
+
+    const timer = setTimeout(() => {
+      saveTranscript(id, transcript).catch((error) => {
+        console.warn('Failed to save transcript', error)
+      })
+    }, 2000)
+
+    return () => clearTimeout(timer)
+  }, [id, transcript])
 
   // ── Controls ─────────────────────────────────────────────────────
   const toggleMute = () => {
@@ -330,7 +366,9 @@ export default function MeetingRoom() {
     }
     setLoadingAI(true)
     try {
-      const res = await summarizeMeeting(transcript || meeting.transcript, id)
+      const transcriptToSummarize = transcript || meeting.transcript
+      await saveTranscript(id!, transcriptToSummarize)
+      const res = await summarizeMeeting(transcriptToSummarize, id)
       setAiSummary(res.data)
     } catch (err) {
       alert('Failed to generate AI summary')
@@ -344,14 +382,41 @@ export default function MeetingRoom() {
     screenStreamRef.current?.getTracks().forEach(t => t.stop())
     peersRef.current.forEach(pc => pc.close())
     recognitionRef.current?.stop()
+    aiRecorderActiveRef.current = false
+    clearTimeout(aiRecorderTimerRef.current)
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }
 
-  const leaveMeeting = async () => {
+  const leaveMeeting = useCallback(async () => {
+    if (endingRef.current) return
+    endingRef.current = true
+
+    if (transcript.trim()) {
+      try { await saveTranscript(id!, transcript) } catch {}
+    }
     cleanup()
     try { await endMeeting(id!) } catch {}
     socket.emit('end-meeting', { roomId })
-    navigate('/dashboard')
-  }
+    navigate('/app/dashboard')
+  }, [id, navigate, roomId, socket, transcript])
+
+  useEffect(() => {
+    if (loading) return
+
+    if (!limitStartedAtRef.current) limitStartedAtRef.current = Date.now()
+    const timer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - limitStartedAtRef.current!) / 1000)
+      const remaining = Math.max(MEETING_LIMIT_SECONDS - elapsed, 0)
+      setRemainingSeconds(remaining)
+
+      if (remaining <= 0) {
+        window.clearInterval(timer)
+        leaveMeeting()
+      }
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [loading, leaveMeeting])
 
   const copyCode = () => {
     navigator.clipboard.writeText(meeting?.meetingCode || '')
@@ -393,6 +458,7 @@ export default function MeetingRoom() {
 
   const participantsList = Array.from(participants.values())
   const totalParticipants = participantsList.length + 1
+  const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`
 
   return (
     <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
@@ -408,6 +474,9 @@ export default function MeetingRoom() {
             </button>
             <span className="text-xs text-slate-500 flex items-center gap-1">
               <Users size={11} /> {totalParticipants}
+            </span>
+            <span className={`text-xs font-medium ${remainingSeconds <= 30 ? 'text-red-400' : 'text-slate-400'}`}>
+              Limit {remainingLabel}
             </span>
           </div>
         </div>
@@ -460,15 +529,21 @@ export default function MeetingRoom() {
           <div className="flex w-full max-w-sm flex-col border-l border-slate-800 bg-slate-900">
             {/* Tabs */}
             <div className="flex border-b border-slate-800">
-              <button className="flex-1 py-3 text-xs font-medium text-blue-400 border-b-2 border-blue-500">
+              <button 
+                onClick={() => setActivePanelTab('chat')}
+                className={`flex-1 py-3 text-xs font-medium ${activePanelTab === 'chat' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-500'}`}>
                 Chat
               </button>
-              <button className="flex-1 py-3 text-xs font-medium text-slate-500">
+              <button 
+                onClick={() => setActivePanelTab('transcript')}
+                className={`flex-1 py-3 text-xs font-medium ${activePanelTab === 'transcript' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-slate-500'}`}>
                 Transcript
               </button>
             </div>
 
-            {/* Chat messages */}
+            {activePanelTab === 'chat' ? (
+              <>
+                {/* Chat messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 && (
                 <p className="text-slate-600 text-xs text-center mt-4">No messages yet. Say hello!</p>
@@ -512,6 +587,13 @@ export default function MeetingRoom() {
                 </button>
               </div>
             </div>
+          </>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 whitespace-pre-wrap text-sm text-slate-300">
+            {transcript || "No transcript yet. Speak to start transcribing..."}
+            <div ref={chatEndRef} />
+          </div>
+        )}
           </div>
         )}
       </div>

@@ -1,8 +1,10 @@
 import express from "express";
-import { summarizeText } from "../controllers/aicontroller.js";
+import authMiddleware from "../middleware/authMiddleware.js";
+import { getAnalytics, summarizeText } from "../controllers/aicontroller.js";
 
 const router = express.Router();
 
-router.post("/summarize", summarizeText);
+router.post("/summarize", authMiddleware, summarizeText);
+router.get("/analytics", authMiddleware, getAnalytics);
 
 export default router;

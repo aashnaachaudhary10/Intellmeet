@@ -9,6 +9,7 @@ import taskRoutes from "./routes/taskRoutes.js";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
+import Meeting from "./models/Meeting.js";
 
 dotenv.config();
 
@@ -43,6 +44,10 @@ const io = new Server(server, {
 const rooms = new Map();
 
 io.on("connection", (socket) => {
+  socket.on("transcript-update", (data) => {
+    socket.to(data.roomId).emit("transcript-update", data);
+  });
+
   console.log("User connected:", socket.id);
 
   socket.on("join-room", ({ roomId, userId, userName }) => {
@@ -82,7 +87,7 @@ io.on("connection", (socket) => {
     io.to(to).emit("ice-candidate", { candidate, from: socket.id });
   });
 
-  socket.on("send-message", (msgPayload) => {
+  socket.on("send-message", async (msgPayload) => {
     // msgPayload contains: roomId, message, userId, userName, meetingId
     const message = {
       id: Date.now().toString(),
@@ -91,7 +96,41 @@ io.on("connection", (socket) => {
       userName: msgPayload.userName,
       timestamp: new Date().toISOString()
     };
+
+    if (msgPayload.meetingId) {
+      try {
+        await Meeting.findByIdAndUpdate(msgPayload.meetingId, {
+          $push: {
+            chatMessages: {
+              sender: msgPayload.userId,
+              senderName: msgPayload.userName,
+              message: msgPayload.message,
+              timestamp: message.timestamp,
+            },
+          },
+        });
+      } catch (error) {
+        console.error("Failed to save chat message:", error.message);
+      }
+    }
+
     io.to(msgPayload.roomId).emit("receive-message", message);
+  });
+
+  socket.on("transcript-update", async ({ roomId, meetingId, text }) => {
+    if (meetingId && text) {
+      try {
+        const meeting = await Meeting.findById(meetingId);
+        if (meeting) {
+          meeting.transcript = `${meeting.transcript || ""}${text}\n`;
+          await meeting.save();
+        }
+      } catch (error) {
+        console.error("Failed to save transcript chunk:", error.message);
+      }
+    }
+
+    socket.to(roomId).emit("transcript-update", { text });
   });
 
   socket.on("typing-start", ({ roomId, userName }) => {
@@ -141,7 +180,7 @@ io.on("connection", (socket) => {
 });
 
 // Connect DB + start server
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {

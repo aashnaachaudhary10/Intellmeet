@@ -1,17 +1,38 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { getMeeting } from '../services/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getMeeting, summarizeMeeting } from '../services/api'
 import { format } from 'date-fns'
-import { ArrowLeft, Bot, Clock, Users, CheckCircle2, Circle, FileText, Video, Calendar } from 'lucide-react'
+import { ArrowLeft, Bot, Clock, Users, CheckCircle2, Circle, FileText, Video, Calendar, Loader2 } from 'lucide-react'
 
 export default function MeetingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['meeting', id],
     queryFn: () => getMeeting(id!).then(r => r.data.meeting)
   })
+
+  const meeting = data
+  const canGenerateSummary = Boolean(meeting?.transcript?.trim() || meeting?.recordingParts?.length)
+
+  const generateSummaryMut = useMutation({
+    mutationFn: () => summarizeMeeting(meeting?.transcript || '', id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['meeting', id] })
+      qc.invalidateQueries({ queryKey: ['meetings'] })
+    }
+  })
+
+  const handleGenerateSummary = () => {
+    if (!canGenerateSummary) {
+      alert('No transcript or recording parts found for this meeting yet.')
+      return
+    }
+
+    generateSummaryMut.mutate()
+  }
 
   if (isLoading) return (
     <div className="p-8 flex items-center justify-center h-64">
@@ -19,7 +40,6 @@ export default function MeetingDetail() {
     </div>
   )
 
-  const meeting = data
   if (!meeting) return null
 
   return (
@@ -70,9 +90,19 @@ export default function MeetingDetail() {
           {/* AI Summary */}
           {meeting.summary ? (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Bot size={18} className="text-blue-400" />
-                <h2 className="font-semibold text-white">AI Summary</h2>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot size={18} className="text-blue-400" />
+                  <h2 className="font-semibold text-white">AI Summary</h2>
+                </div>
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={generateSummaryMut.isPending || !canGenerateSummary}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-600/40 bg-blue-600/15 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-600/25 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {generateSummaryMut.isPending ? <Loader2 size={15} className="animate-spin" /> : <Bot size={15} />}
+                  Regenerate
+                </button>
               </div>
               <p className="text-slate-300 text-sm leading-relaxed">{meeting.summary}</p>
 
@@ -91,11 +121,25 @@ export default function MeetingDetail() {
             </div>
           ) : (
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Bot size={18} className="text-slate-600" />
-                <h2 className="font-semibold text-slate-500">AI Summary</h2>
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Bot size={18} className="text-blue-400" />
+                  <h2 className="font-semibold text-white">AI Summary</h2>
+                </div>
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={generateSummaryMut.isPending || !canGenerateSummary}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {generateSummaryMut.isPending ? <Loader2 size={15} className="animate-spin" /> : <Bot size={15} />}
+                  {generateSummaryMut.isPending ? 'Generating...' : 'Generate AI Summary'}
+                </button>
               </div>
-              <p className="text-slate-600 text-sm">No AI summary generated yet. Start the meeting and click "AI Summary" to generate one.</p>
+              <p className="text-slate-500 text-sm">
+                {canGenerateSummary
+                  ? 'No AI summary generated yet. Generate it now from the saved transcript or recording parts.'
+                  : 'No transcript or recording parts found yet.'}
+              </p>
             </div>
           )}
 

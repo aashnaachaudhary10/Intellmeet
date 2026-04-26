@@ -8,12 +8,22 @@ import {
   deleteMeeting,
   getDashboardData,
   getMeetingById,
+  startMeeting,
+  endMeeting,
+  saveTranscript,
+  saveSummary,
+  saveRecordingPart,
 } from "../controllers/meetingController.js";
 
 router.post("/create", authMiddleware, createMeeting);
 router.post("/join", authMiddleware, joinMeeting);
 router.delete("/delete/:id", authMiddleware, deleteMeeting);
 router.get("/dashboard", authMiddleware, getDashboardData);
+router.patch("/:id/start", authMiddleware, startMeeting);
+router.patch("/:id/end", authMiddleware, endMeeting);
+router.patch("/:id/transcript", authMiddleware, saveTranscript);
+router.patch("/:id/summary", authMiddleware, saveSummary);
+router.patch("/:id/recording-part", authMiddleware, saveRecordingPart);
 router.get("/:id", authMiddleware, getMeetingById);
 
 export default router;
