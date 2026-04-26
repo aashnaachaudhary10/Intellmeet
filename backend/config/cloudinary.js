@@ -15,10 +15,11 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'intellmeet_avatars',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    format: async (req, file) => 'png', 
+    public_id: (req, file) => `avatar-${Date.now()}`,
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 export default upload;
