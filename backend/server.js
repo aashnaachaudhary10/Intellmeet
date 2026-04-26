@@ -44,10 +44,6 @@ const io = new Server(server, {
 const rooms = new Map();
 
 io.on("connection", (socket) => {
-  socket.on("transcript-update", (data) => {
-    socket.to(data.roomId).emit("transcript-update", data);
-  });
-
   console.log("User connected:", socket.id);
 
   socket.on("join-room", ({ roomId, userId, userName }) => {

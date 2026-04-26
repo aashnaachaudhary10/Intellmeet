@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { logout as logoutAPI } from "../services/api";
 import {
@@ -37,7 +37,7 @@ export default function Layout() {
       <aside className="sticky top-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         {/* Logo */}
         <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
+          <Link to="/app/dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
               <Bot size={20} className="text-white" />
             </div>
@@ -45,7 +45,7 @@ export default function Layout() {
               <h1 className="font-bold text-lg">IntellMeet</h1>
               <p className="text-xs text-slate-400">AI-Powered Meetings</p>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Navigation */}

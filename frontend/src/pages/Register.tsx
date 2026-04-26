@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { signup } from '../services/api'
-import { Bot, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Bot, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 
 export default function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
@@ -36,7 +36,12 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative">
+      <Link to="/" className="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-white transition group z-50">
+        <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+        <span className="text-sm font-medium">Back to Home</span>
+      </Link>
+      
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
       </div>

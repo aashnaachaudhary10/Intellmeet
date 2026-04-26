@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useToast } from '../hooks/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog"
 import { API_BASE_URL, getMeeting, startMeeting, endMeeting, summarizeMeeting, saveTranscript, saveRecordingPart } from '../services/api'
 import { getSocket } from '../services/socket'
 import { genUploader } from 'uploadthing/client'
@@ -54,6 +65,8 @@ export default function MeetingRoom() {
   const [loadingAI, setLoadingAI] = useState(false)
   const [copied, setCopied] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(MEETING_LIMIT_SECONDS)
+  const [showEndDialog, setShowEndDialog] = useState(false)
+  const { toast } = useToast()
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -99,8 +112,9 @@ export default function MeetingRoom() {
 
         await setupMedia()
         setLoading(false)
-      } catch (err) {
+      } catch (err: any) {
         console.error(err)
+        toast({ title: 'Error', description: err?.response?.data?.message || err.message || 'Failed to initialize meeting', variant: 'destructive' })
         navigate('/app/dashboard')
       }
     }
@@ -211,6 +225,12 @@ export default function MeetingRoom() {
       peersRef.current.delete(socketId)
     })
 
+    socket.on('transcript-update', ({ text }: any) => {
+      if (text) {
+        setTranscript(prev => prev + text + '\n')
+      }
+    })
+
     socket.on('meeting-ended', () => {
       cleanup()
       navigate('/app/dashboard')
@@ -225,6 +245,7 @@ export default function MeetingRoom() {
       socket.off('receive-message')
       socket.off('user-typing')
       socket.off('user-left')
+      socket.off('transcript-update')
       socket.off('meeting-ended')
     }
   }, [socket, createPeer])
@@ -361,7 +382,7 @@ export default function MeetingRoom() {
 
   const generateAISummary = async () => {
     if (!transcript && !meeting?.transcript) {
-      alert('No transcript available yet. Speak in the meeting to generate one.')
+      toast({ title: 'Notice', description: 'No transcript available yet. Speak in the meeting to generate one.' })
       return
     }
     setLoadingAI(true)
@@ -370,16 +391,23 @@ export default function MeetingRoom() {
       await saveTranscript(id!, transcriptToSummarize)
       const res = await summarizeMeeting(transcriptToSummarize, id)
       setAiSummary(res.data)
-    } catch (err) {
-      alert('Failed to generate AI summary')
+    } catch (err: any) {
+      toast({ title: 'Error', description: err?.response?.data?.message || err.message || 'Failed to generate AI summary', variant: 'destructive' })
     } finally {
       setLoadingAI(false)
     }
   }
 
   const cleanup = () => {
-    localStreamRef.current?.getTracks().forEach(t => t.stop())
-    screenStreamRef.current?.getTracks().forEach(t => t.stop())
+    if (localVideoRef.current) localVideoRef.current.srcObject = null
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop())
+      localStreamRef.current = null
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(t => t.stop())
+      screenStreamRef.current = null
+    }
     peersRef.current.forEach(pc => pc.close())
     recognitionRef.current?.stop()
     aiRecorderActiveRef.current = false
@@ -387,7 +415,7 @@ export default function MeetingRoom() {
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
   }
 
-  const leaveMeeting = useCallback(async () => {
+  const leaveMeeting = useCallback(async (endForEveryone = false) => {
     if (endingRef.current) return
     endingRef.current = true
 
@@ -395,10 +423,22 @@ export default function MeetingRoom() {
       try { await saveTranscript(id!, transcript) } catch {}
     }
     cleanup()
-    try { await endMeeting(id!) } catch {}
-    socket.emit('end-meeting', { roomId })
+    
+    if (endForEveryone) {
+      try { await endMeeting(id!) } catch {}
+      socket.emit('end-meeting', { roomId })
+    }
+    
     navigate('/app/dashboard')
   }, [id, navigate, roomId, socket, transcript])
+
+  const handleEndClick = () => {
+    if (meeting?.host === user?.id) {
+      setShowEndDialog(true)
+    } else {
+      leaveMeeting(false)
+    }
+  }
 
   useEffect(() => {
     if (loading) return
@@ -411,12 +451,12 @@ export default function MeetingRoom() {
 
       if (remaining <= 0) {
         window.clearInterval(timer)
-        leaveMeeting()
+        leaveMeeting(meeting?.host === user?.id)
       }
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [loading, leaveMeeting])
+  }, [loading, leaveMeeting, meeting?.host, user?.id])
 
   const copyCode = () => {
     navigator.clipboard.writeText(meeting?.meetingCode || '')
@@ -680,12 +720,40 @@ export default function MeetingRoom() {
 
         <div className="w-px h-8 bg-slate-700 mx-2"></div>
 
-        <button onClick={leaveMeeting}
+        <button onClick={handleEndClick}
           className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 transition flex items-center gap-2 font-medium">
           <PhoneOff size={20} className="text-white" />
           <span className="text-white text-sm">End</span>
         </button>
       </div>
+
+      <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <AlertDialogContent className="bg-slate-900 border-slate-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Meeting</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              You are the host. Do you want to end the meeting for everyone, or just leave?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-800 hover:bg-slate-700 hover:text-white border-slate-700 text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => leaveMeeting(false)}
+              className="bg-slate-800 hover:bg-slate-700 border-slate-700 text-white"
+            >
+              Just Leave
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={() => leaveMeeting(true)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              End for Everyone
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
