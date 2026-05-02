@@ -30,7 +30,7 @@ const HeroSection = () => {
             Real-time video meetings enhanced with AI transcription, smart summaries, and automatic action items. Reduce meeting follow-up time by 40–60%.
           </p>
 
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-up" style={{ animationDelay: "0.3s" }}>
+          {/* <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-up" style={{ animationDelay: "0.3s" }}>
             <Button 
               size="lg" 
               className="bg-gradient-primary text-primary-foreground px-8 shadow-glow hover:opacity-90 transition-opacity"
@@ -42,7 +42,7 @@ const HeroSection = () => {
             <Button size="lg" variant="outline" className="border-border text-foreground hover:bg-secondary">
               Watch Demo
             </Button>
-          </div>
+          </div> */}
 
           {/* Stats row */}
           <div className="mt-16 grid grid-cols-3 gap-8 border-t border-border pt-8 animate-fade-up" style={{ animationDelay: "0.4s" }}>
