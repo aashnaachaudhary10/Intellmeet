@@ -1,6 +1,6 @@
 # 🚀 IntelliMeet – AI-Powered Real-Time Meeting Platform
 
-![Landing Page](./image/landingpage.jpg)
+![Landing Page](./images/landingpage.jpg)
 
 ## 📌 Overview
 
