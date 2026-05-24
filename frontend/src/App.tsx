@@ -20,6 +20,7 @@ import KanbanBoard from "./pages/KanbanBoard";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import Docs from "./pages/Docs";
 import Layout from "@/components/Layout";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,11 @@ export default function App() {
                   <MeetingRoom />
                 </ProtectedRoute>
               }
+            />
+
+            <Route
+              path="/docs"
+              element={<Docs />}
             />
 
             <Route path="*" element={<NotFound />} />

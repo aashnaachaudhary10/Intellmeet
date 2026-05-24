@@ -8,12 +8,14 @@ import {
   LogOut,
   Bot,
   User,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
   { to: "/app/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/kanban", icon: Trello, label: "Tasks" },
   { to: "/app/analytics", icon: BarChart2, label: "Analytics" },
+  { to: "/docs", icon: BookOpen, label: "Docs" },
   { to: "/app/profile", icon: User, label: "Profile" },
 ];
 

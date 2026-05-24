@@ -70,4 +70,25 @@ export const summarizeMeeting = (transcript: string, meetingId?: string) =>
   API.post('/ai/summarize', { transcript, meetingId })
 export const getAnalytics = () => API.get('/ai/analytics')
 
+// Docs / file management
+export const DOCS_ROOT_PATH =
+  import.meta.env.VITE_DOCS_ROOT || 'D:/Projects/aa/Intellmeet'
+
+export type FileListItem = {
+  name: string
+  type: 'folder' | 'file'
+  size: number | null
+}
+
+export const getProjectDocs = () =>
+  API.get<{ success: boolean; currentPath: string; files: FileListItem[] }>('/files', {
+    params: { path: DOCS_ROOT_PATH }
+  })
+
+export const getDocContent = (filePath: string) =>
+  API.get<string>('/files/stream', {
+    params: { path: filePath },
+    responseType: 'text'
+  })
+
 export default API

@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import aiRoutes from "./routes/ai.js";
 import taskRoutes from "./routes/taskRoutes.js";
+import fileRoutes from "./routes/fileRoutes.js";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
@@ -31,6 +32,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/files", fileRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);
