@@ -5,7 +5,7 @@
 **IntelliMeet** is a full-stack, real-time collaboration platform designed for seamless virtual meetings. It combines secure authentication, real-time communication, video conferencing, and AI-powered insights to enhance productivity and user experience.
 
 The platform is built using a modern scalable architecture with MERN stack, real-time technologies, and AI integrations.
-![Landing Page](images/landingpage.png)
+![Landing Page](images/landingpage.jpg)
 
 ---
 
