@@ -33,8 +33,8 @@ export default function Dashboard() {
       qc.invalidateQueries({ queryKey: ['meetings'] })
       setShowCreate(false)
       setNewMeeting({ title: '', description: '' })
-      if (res.data?.meeting?.id) {
-        navigate(`/room/${res.data.meeting.id}`)
+      if (res.data?.data?.meeting?.id) {
+        navigate(`/room/${res.data.data.meeting.id}`)
       }
       toast({ title: 'Success', description: 'Meeting created successfully' })
     },
@@ -52,8 +52,8 @@ export default function Dashboard() {
     onSuccess: (res) => {
       setShowJoin(false)
       setJoinCode('')
-      if (res.data?.meeting?.id) {
-        navigate(`/room/${res.data.meeting.id}`)
+      if (res.data?.data?.meeting?.id) {
+        navigate(`/room/${res.data.data.meeting.id}`)
       }
       toast({ title: 'Success', description: 'Joined meeting successfully' })
     },

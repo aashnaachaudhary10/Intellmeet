@@ -1,6 +1,14 @@
 import { prisma } from "../config/prisma.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 
+const HOST_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  avatar: true,
+  role: true,
+};
+
 const calculateDurationMinutes = (startedAt, endedAt = new Date()) => {
   if (!startedAt) return 0;
   return Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000));
@@ -46,7 +54,7 @@ export const startMeeting = async (req, res) => {
         startedAt: new Date(),
       },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -75,7 +83,7 @@ export const endMeeting = async (req, res) => {
         duration,
       },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -93,7 +101,7 @@ export const saveTranscript = async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { transcript: transcript || "" },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -115,7 +123,7 @@ export const saveSummary = async (req, res) => {
         actionItems,
       },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -132,7 +140,7 @@ export const saveRecordingPart = async (req, res) => {
     const meeting = await prisma.meeting.findUnique({
       where: { id: Number(req.params.id) },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -154,7 +162,7 @@ export const saveRecordingPart = async (req, res) => {
         recordingParts: updatedParts,
       },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -185,7 +193,7 @@ export const joinMeeting = async (req, res) => {
       where: { id: meeting.id },
       data: { participants },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -200,7 +208,7 @@ export const getDashboardData = async (req, res) => {
     const meetings = await prisma.meeting.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
@@ -218,7 +226,7 @@ export const getMeetingById = async (req, res) => {
     const meeting = await prisma.meeting.findUnique({
       where: { id: Number(req.params.id) },
       include: {
-        host: true,
+        host: { select: HOST_SELECT },
       },
     });
 
