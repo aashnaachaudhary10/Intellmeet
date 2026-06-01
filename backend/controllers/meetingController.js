@@ -14,29 +14,28 @@ const calculateDurationMinutes = (startedAt, endedAt = new Date()) => {
   return Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000));
 };
 
-//  Create Meeting
+// Create Meeting
 export const createMeeting = async (req, res) => {
   try {
     const { title, description, scheduledTime } = req.body;
-
     const meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const host = req.user?.name || "Host";
 
-  const newMeeting = await prisma.meeting.create({
-    data: {
-      title: title || "New Meeting",
-      description: description || "",
-      hostId: req.user.id,
-      meetingCode,
-      participants: [host],
-      recordingFolder: `meeting-${meetingCode}`,
-      startedAt: scheduledTime ? undefined : new Date(),
-      status: scheduledTime ? "scheduled" : "active",
-    },
-    include: {
-      host: true,
-    },
-  });
+    const newMeeting = await prisma.meeting.create({
+      data: {
+        title: title || "New Meeting",
+        description: description || "",
+        hostId: req.user.id,
+        meetingCode,
+        participants: [host],
+        recordingFolder: `meeting-${meetingCode}`,
+        startedAt: scheduledTime ? undefined : new Date(),
+        status: scheduledTime ? "scheduled" : "active",
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
 
     return sendSuccess(res, 201, "Meeting created successfully", { meeting: newMeeting });
   } catch (err) {
@@ -48,7 +47,7 @@ export const createMeeting = async (req, res) => {
 export const startMeeting = async (req, res) => {
   try {
     const meeting = await prisma.meeting.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: {
         status: "active",
         startedAt: new Date(),
@@ -67,7 +66,7 @@ export const startMeeting = async (req, res) => {
 export const endMeeting = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
     });
 
     if (!meeting) return sendError(res, 404, "Meeting not found");
@@ -76,7 +75,7 @@ export const endMeeting = async (req, res) => {
     const duration = calculateDurationMinutes(meeting.startedAt, endedAt);
 
     const updatedMeeting = await prisma.meeting.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: {
         status: "ended",
         endedAt,
@@ -98,7 +97,7 @@ export const saveTranscript = async (req, res) => {
     const { transcript } = req.body;
 
     const meeting = await prisma.meeting.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: { transcript: transcript || "" },
       include: {
         host: { select: HOST_SELECT },
@@ -116,7 +115,7 @@ export const saveSummary = async (req, res) => {
     const { summary, keyPoints = [], actionItems = [] } = req.body;
 
     const meeting = await prisma.meeting.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: {
         summary: summary || "",
         keyPoints,
@@ -138,7 +137,7 @@ export const saveRecordingPart = async (req, res) => {
     const { key, url, name, size, partNumber, uploadedBy, uploadedByName, folder } = req.body;
 
     const meeting = await prisma.meeting.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       include: {
         host: { select: HOST_SELECT },
       },
@@ -156,7 +155,7 @@ export const saveRecordingPart = async (req, res) => {
     const updatedParts = [...parts, { key, url, name, size, partNumber, uploadedBy, uploadedByName }];
 
     const updated = await prisma.meeting.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: {
         recordingFolder: folder,
         recordingParts: updatedParts,
@@ -224,7 +223,7 @@ export const getDashboardData = async (req, res) => {
 export const getMeetingById = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       include: {
         host: { select: HOST_SELECT },
       },
@@ -241,13 +240,13 @@ export const getMeetingById = async (req, res) => {
 export const deleteMeeting = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
     });
 
     if (!meeting) return sendError(res, 404, "Meeting not found");
 
     await prisma.meeting.delete({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
     });
 
     return sendSuccess(res, 200, "Meeting deleted successfully");

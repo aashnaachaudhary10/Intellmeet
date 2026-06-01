@@ -31,7 +31,7 @@ export const createTask = async (req, res) => {
         description: description || "",
         status: status || "todo",
         userId: req.user.id,
-        meetingId: meetingId ? Number(meetingId) : undefined,
+        meetingId: meetingId || undefined,
       },
       include: {
         user: true,
@@ -49,7 +49,7 @@ export const updateTask = async (req, res) => {
     const { title, description, status } = req.body;
 
     const existing = await prisma.task.findFirst({
-      where: { id: Number(req.params.id), userId: req.user.id },
+      where: { id: req.params.id, userId: req.user.id },
     });
 
     if (!existing) {
@@ -57,7 +57,7 @@ export const updateTask = async (req, res) => {
     }
 
     const updated = await prisma.task.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: {
         ...(title !== undefined ? { title } : {}),
         ...(description !== undefined ? { description } : {}),
@@ -83,7 +83,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     const existing = await prisma.task.findFirst({
-      where: { id: Number(req.params.id), userId: req.user.id },
+      where: { id: req.params.id, userId: req.user.id },
     });
 
     if (!existing) {
@@ -91,7 +91,7 @@ export const updateTaskStatus = async (req, res) => {
     }
 
     const updated = await prisma.task.update({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
       data: { status },
       include: {
         user: true,
@@ -107,7 +107,7 @@ export const updateTaskStatus = async (req, res) => {
 export const deleteTask = async (req, res) => {
   try {
     const task = await prisma.task.findFirst({
-      where: { id: Number(req.params.id), userId: req.user.id },
+      where: { id: req.params.id, userId: req.user.id },
     });
 
     if (!task) {
@@ -115,7 +115,7 @@ export const deleteTask = async (req, res) => {
     }
 
     await prisma.task.delete({
-      where: { id: Number(req.params.id) },
+      where: { id: req.params.id },
     });
 
     return sendSuccess(res, 200, "Task deleted successfully");

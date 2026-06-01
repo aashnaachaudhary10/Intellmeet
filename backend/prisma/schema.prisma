@@ -30,7 +30,7 @@ model User {
 
 // Meeting Model
 model Meeting {
-  id             Int      @id @default(autoincrement())
+  id             String   @id @default(uuid())
   title          String   @db.VarChar(255)
   description    String   @default("") @db.Text
   meetingCode    String   @unique @db.VarChar(50)
@@ -58,13 +58,13 @@ model Meeting {
 
 // Task Model
 model Task {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   title       String   @db.VarChar(255)
   description String   @default("") @db.Text
   status      String   @default("todo") @db.VarChar(50)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  meetingId   Int?
+  meetingId   String?
   meeting     Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -74,7 +74,7 @@ model Task {
 
 // Refresh Token Model
 model RefreshToken {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   token     String   @unique @db.Text
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
