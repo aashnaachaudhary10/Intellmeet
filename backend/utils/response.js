@@ -19,12 +19,12 @@ export const sendSuccess = (res, status = 200, message = "Success", data = null)
 // Format Zod validation errors
 export const formatValidationErrors = (zodError) => {
   const errors = {};
-  zodError.errors.forEach((error) => {
-    const field = error.path.join(".");
+  zodError.issues.forEach((issue) => {
+    const field = issue.path.join(".");
     if (!errors[field]) {
       errors[field] = [];
     }
-    errors[field].push(error.message);
+    errors[field].push(issue.message);
   });
   return errors;
 };
