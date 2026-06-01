@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { updateProfile } from '../services/api'
 import { useMutation } from '@tanstack/react-query'
+import { useToast } from '../hooks/use-toast'
 import { Camera, CheckCircle, Loader2, Mail, Save, Shield, User } from 'lucide-react'
 
 export default function Profile() {
   const { user, setUser, token } = useAuthStore()
+  const { toast } = useToast()
   const [name, setName] = useState(user?.name || '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
@@ -33,10 +35,18 @@ export default function Profile() {
       return updateProfile(formData)
     },
     onSuccess: (res) => {
-      setUser(res.data.user, token!)
+      setUser(res.data.data.user, token!)
       setSaved(true)
       setAvatarFile(null)
+      toast({ title: 'Success', description: 'Profile updated successfully' })
       setTimeout(() => setSaved(false), 2500)
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to update profile',
+        variant: 'destructive'
+      })
     }
   })
 

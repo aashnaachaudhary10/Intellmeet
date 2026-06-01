@@ -1,5 +1,6 @@
+// AI Controller - summarize meeting transcripts and provide analytics
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import Meeting from "../models/Meeting.js";
+import { prisma } from "../config/prisma.js";
 
 const normalizeActionItems = (items = []) =>
   items
@@ -16,7 +17,9 @@ const normalizeActionItems = (items = []) =>
       return {
         task: item.task || item.title || item.description || "",
         assignee: item.assignee || "Unassigned",
-        priority: ["low", "medium", "high"].includes(item.priority) ? item.priority : "medium",
+        priority: ["low", "medium", "high"].includes(item.priority)
+          ? item.priority
+          : "medium",
         completed: Boolean(item.completed),
       };
     })
@@ -65,7 +68,10 @@ const extractJsonObjects = (text) => {
 };
 
 const parseMeetingSummaryResponse = (responseText) => {
-  const cleanedText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const cleanedText = responseText
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
 
   try {
     return JSON.parse(cleanedText);
@@ -78,17 +84,21 @@ const parseMeetingSummaryResponse = (responseText) => {
         if (
           parsed &&
           typeof parsed === "object" &&
-          ("summary" in parsed || "keyPoints" in parsed || "actionItems" in parsed)
+          ("summary" in parsed ||
+            "keyPoints" in parsed ||
+            "actionItems" in parsed)
         ) {
           return parsed;
         }
       } catch {
-        // Keep checking earlier JSON-like blocks in the response.
+        // Keep checking earlier blocks in the response.
       }
     }
   }
 
-  throw new Error("AI response did not contain a valid meeting summary JSON object.");
+  throw new Error(
+    "AI response did not contain a valid meeting summary JSON object."
+  );
 };
 
 const transcribeAudioBlob = async (audioBlob, filename = "meeting-audio.webm") => {
@@ -98,15 +108,21 @@ const transcribeAudioBlob = async (audioBlob, filename = "meeting-audio.webm") =
 
   const formData = new FormData();
   formData.append("file", audioBlob, filename);
-  formData.append("model", process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe");
+  formData.append(
+    "model",
+    process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe"
+  );
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: formData,
-  });
+  const response = await fetch(
+    "https://api.openai.com/v1/audio/transcriptions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: formData,
+    }
+  );
 
   const data = await response.json();
 
@@ -134,11 +150,16 @@ const transcribeRecordingParts = async (meeting) => {
 
     const response = await fetch(part.url);
     if (!response.ok) {
-      throw new Error(`Failed to download recording part ${part.partNumber || part.name}`);
+      throw new Error(
+        `Failed to download recording part ${part.partNumber || part.name}`
+      );
     }
 
     const audioBlob = await response.blob();
-    const text = await transcribeAudioBlob(audioBlob, part.name || `part-${part.partNumber}.webm`);
+    const text = await transcribeAudioBlob(
+      audioBlob,
+      part.name || `part-${part.partNumber}.webm`
+    );
     part.transcript = text;
     part.transcribed = true;
     transcripts.push(text);
@@ -146,7 +167,10 @@ const transcribeRecordingParts = async (meeting) => {
 
   const transcript = transcripts.filter(Boolean).join("\n");
   meeting.transcript = transcript;
-  await meeting.save();
+  await prisma.meeting.update({
+    where: { id: meeting.id },
+    data: { transcript },
+  });
 
   return transcript;
 };
@@ -154,24 +178,34 @@ const transcribeRecordingParts = async (meeting) => {
 export const summarizeText = async (req, res) => {
   try {
     const { text, transcript, meetingId } = req.body;
-    const meeting = meetingId ? await Meeting.findById(meetingId) : null;
-    const hasRecordingParts = Boolean(meeting?.recordingParts?.some((part) => part.url));
+
+    const meeting = meetingId
+      ? await prisma.meeting.findUnique({
+          where: { id: Number(meetingId) },
+        })
+      : null;
+
+    const hasRecordingParts = Boolean(
+      meeting?.recordingParts?.some((part) => part.url)
+    );
     const content = hasRecordingParts
       ? await transcribeRecordingParts(meeting)
       : text || transcript || meeting?.transcript;
 
     if (!content) {
-      return res.status(400).json({ message: "Text content is required for summarization" });
+      return res
+        .status(400)
+        .json({ message: "Text content is required for summarization" });
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ message: "Gemini API key is not configured in .env" });
+      return res
+        .status(500)
+        .json({ message: "Gemini API key is not configured in .env" });
     }
 
-    // Initialize the Google Generative AI with the API Key from environment variables
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  
     let modelId = process.env.GENERATIVE_MODEL || null;
 
     const model = genAI.getGenerativeModel({
@@ -185,7 +219,7 @@ export const summarizeText = async (req, res) => {
       You are an AI meeting assistant. Analyze the following meeting transcript.
       Provide a brief summary and a list of actionable items exactly as a JSON response.
       Do NOT include any markdown code block formatting (like \`\`\`json) in your response, just the raw JSON object.
-      
+
       Format:
       {
         "summary": "A brief 2 to 3 sentence summary of the meeting.",
@@ -208,13 +242,15 @@ export const summarizeText = async (req, res) => {
     try {
       result = await model.generateContent(prompt);
     } catch (genErr) {
-      console.error('generateContent error:', genErr?.message || genErr);
-      // Try to list models to help debugging
+      console.error("generateContent error:", genErr?.message || genErr);
       try {
         const listResp = await genAI.listModels();
-        console.error('Available generative models:', JSON.stringify(listResp, null, 2));
+        console.error(
+          "Available generative models:",
+          JSON.stringify(listResp, null, 2)
+        );
       } catch (listErr) {
-        console.error('listModels failed:', listErr?.message || listErr);
+        console.error("listModels failed:", listErr?.message || listErr);
       }
       throw genErr;
     }
@@ -224,33 +260,51 @@ export const summarizeText = async (req, res) => {
     const parsedData = parseMeetingSummaryResponse(responseText);
     const payload = {
       summary: parsedData.summary || "No summary generated.",
-      keyPoints: Array.isArray(parsedData.keyPoints) ? parsedData.keyPoints : [],
+      keyPoints: Array.isArray(parsedData.keyPoints)
+        ? parsedData.keyPoints
+        : [],
       actionItems: normalizeActionItems(parsedData.actionItems),
     };
 
     if (meeting) {
-      meeting.transcript = content;
-      meeting.summary = payload.summary;
-      meeting.keyPoints = payload.keyPoints;
-      meeting.actionItems = payload.actionItems;
-      await meeting.save();
+      await prisma.meeting.update({
+        where: { id: meeting.id },
+        data: {
+          transcript: content,
+          summary: payload.summary,
+          keyPoints: payload.keyPoints,
+          actionItems: payload.actionItems,
+        },
+      });
     }
 
     res.status(200).json(payload);
-
   } catch (error) {
     console.error("AI Summarization Error:", error);
-    res.status(500).json({ message: "AI Summarization failed.", error: error.message });
+    res.status(500).json({
+      message: "AI Summarization failed.",
+      error: error.message,
+    });
   }
 };
 
 export const getAnalytics = async (req, res) => {
   try {
-    const meetings = await Meeting.find().sort({ createdAt: -1 });
+    const meetings = await prisma.meeting.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
     const totalMeetings = meetings.length;
-    const totalDuration = meetings.reduce((sum, meeting) => sum + (meeting.duration || 0), 0);
-    const allActionItems = meetings.flatMap((meeting) => meeting.actionItems || []);
-    const completedActionItems = allActionItems.filter((item) => item.completed).length;
+    const totalDuration = meetings.reduce(
+      (sum, meeting) => sum + (meeting.duration || 0),
+      0
+    );
+    const allActionItems = meetings.flatMap(
+      (meeting) => meeting.actionItems || []
+    );
+    const completedActionItems = allActionItems.filter(
+      (item) => item.completed
+    ).length;
 
     const weekLabels = [];
     const weeklyData = [];
@@ -276,16 +330,23 @@ export const getAnalytics = async (req, res) => {
     res.status(200).json({
       totalMeetings,
       totalDuration,
-      avgDuration: totalMeetings ? Math.round(totalDuration / totalMeetings) : 0,
+      avgDuration: totalMeetings
+        ? Math.round(totalDuration / totalMeetings)
+        : 0,
       totalActionItems: allActionItems.length,
       completedActionItems,
       completionRate: allActionItems.length
-        ? Math.round((completedActionItems / allActionItems.length) * 100)
+        ? Math.round(
+            (completedActionItems / allActionItems.length) * 100
+          )
         : 0,
       weeklyData,
       weekLabels,
     });
   } catch (error) {
-    res.status(500).json({ message: "Analytics failed.", error: error.message });
+    res.status(500).json({
+      message: "Analytics failed.",
+      error: error.message,
+    });
   }
 };

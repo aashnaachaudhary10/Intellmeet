@@ -83,7 +83,7 @@ export const login = (data: {
 export const refreshAccessToken = (refreshToken: string) =>
   API.post('/auth/refresh', { refreshToken })
 
-export const logout = (refreshToken: string) =>
+export const logout = (refreshToken?: string) =>
   API.post('/auth/logout', { refreshToken })
 
 export const getMe = () => API.get('/auth/me')
@@ -104,7 +104,7 @@ export const saveSummary = (id: string, data: any) => API.patch(`/meetings/${id}
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
 // ── Tasks ─────────────────────────────────────────────
-export const getTasks = () => API.get('/tasks')
+export const getTasks = () => API.get('/tasks').then(r => r.data.tasks)
 export const createTask = (data: any) => API.post('/tasks', data)
 export const updateTaskStatus = (id: string, status: string) =>
   API.patch(`/tasks/${id}/status`, { status })

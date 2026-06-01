@@ -31,8 +31,8 @@ router.get("/me", authMiddleware, getMe);
 router.put(
   "/update",
   authMiddleware,
-  validateRequest(updateProfileSchema, "body"),
   upload.single("avatar"),
+  validateRequest(updateProfileSchema, "body"),
   updateProfile
 );
 

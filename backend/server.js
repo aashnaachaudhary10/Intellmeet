@@ -8,7 +8,6 @@ import taskRoutes from "./routes/taskRoutes.js";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
-import Meeting from "./models/Meeting.js";
 import { prisma } from "./config/prisma.js";
 import errorHandler from "./middleware/errorHandler.js";
 
@@ -86,27 +85,40 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-message", async (msgPayload) => {
-    // msgPayload contains: roomId, message, userId, userName, meetingId
     const message = {
       id: Date.now().toString(),
       message: msgPayload.message,
       userId: msgPayload.userId,
       userName: msgPayload.userName,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     if (msgPayload.meetingId) {
       try {
-        await Meeting.findByIdAndUpdate(msgPayload.meetingId, {
-          $push: {
-            chatMessages: {
-              sender: msgPayload.userId,
-              senderName: msgPayload.userName,
-              message: msgPayload.message,
-              timestamp: message.timestamp,
-            },
-          },
+        const chatEntry = {
+          sender: msgPayload.userId,
+          senderName: msgPayload.userName,
+          message: msgPayload.message,
+          timestamp: message.timestamp,
+        };
+
+        const meeting = await prisma.meeting.findUnique({
+          where: { id: Number(msgPayload.meetingId) },
         });
+
+        if (meeting) {
+          const nextMessages = [
+            ...(Array.isArray(meeting.chatMessages)
+              ? meeting.chatMessages
+              : []),
+            chatEntry,
+          ];
+
+          await prisma.meeting.update({
+            where: { id: Number(msgPayload.meetingId) },
+            data: { chatMessages: nextMessages },
+          });
+        }
       } catch (error) {
         console.error("Failed to save chat message:", error.message);
       }

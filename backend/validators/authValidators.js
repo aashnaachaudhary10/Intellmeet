@@ -46,3 +46,35 @@ export const updateProfileSchema = z.object({
 export const logoutSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
+
+// Meeting validations
+export const createMeetingSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255, "Title must be less than 255 characters"),
+  description: z.string().max(1000, "Description must be less than 1000 characters").optional(),
+  scheduledTime: z.string().optional(),
+});
+
+export const joinMeetingSchema = z.object({
+  meetingCode: z.string().min(6, "Meeting code must be at least 6 characters"),
+  userName: z.string().min(2, "Name must be at least 2 characters").optional(),
+});
+
+// Task validations
+export const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255, "Title must be less than 255 characters"),
+  description: z.string().max(2000, "Description must be less than 2000 characters").optional(),
+  status: z.enum(["todo", "in-progress", "done"]).optional(),
+  meetingId: z.string().optional(),
+});
+
+export const updateTaskSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255, "Title must be less than 255 characters").optional(),
+  description: z.string().max(2000, "Description must be less than 2000 characters").optional(),
+  status: z.enum(["todo", "in-progress", "done"]).optional(),
+});
+
+export const updateTaskStatusSchema = z.object({
+  status: z.enum(["todo", "in-progress", "done"], {
+    errorMap: () => ({ message: "Status must be todo, in-progress, or done" })
+  }),
+});

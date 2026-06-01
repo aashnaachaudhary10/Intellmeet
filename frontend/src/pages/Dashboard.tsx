@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { getMeetings, createMeeting, joinMeetingByCode, deleteMeeting } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { format } from 'date-fns'
 import {
   Plus, Video, Link2, Clock, Users, Trash2,
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { toast } = useToast()
 
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
@@ -31,7 +33,17 @@ export default function Dashboard() {
       qc.invalidateQueries({ queryKey: ['meetings'] })
       setShowCreate(false)
       setNewMeeting({ title: '', description: '' })
-      navigate(`/room/${res.data.meeting._id}`)
+      if (res.data?.meeting?.id) {
+        navigate(`/room/${res.data.meeting.id}`)
+      }
+      toast({ title: 'Success', description: 'Meeting created successfully' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to create meeting',
+        variant: 'destructive'
+      })
     }
   })
 
@@ -39,13 +51,34 @@ export default function Dashboard() {
     mutationFn: () => joinMeetingByCode({ meetingCode: joinCode.trim().toUpperCase(), userName: user?.name || 'Guest' }),
     onSuccess: (res) => {
       setShowJoin(false)
-      navigate(`/room/${res.data.meeting._id}`)
+      setJoinCode('')
+      if (res.data?.meeting?.id) {
+        navigate(`/room/${res.data.meeting.id}`)
+      }
+      toast({ title: 'Success', description: 'Joined meeting successfully' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to join meeting',
+        variant: 'destructive'
+      })
     }
   })
 
   const deleteMut = useMutation({
     mutationFn: deleteMeeting,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['meetings'] })
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['meetings'] })
+      toast({ title: 'Success', description: 'Meeting deleted' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to delete meeting',
+        variant: 'destructive'
+      })
+    }
   })
 
   const meetings = data || []

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getTasks, createTask, updateTaskStatus, deleteTask } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { Plus, Trash2, Loader2, CheckCircle, Circle, Clock, AlertCircle } from 'lucide-react'
 
 const COLUMNS = [
@@ -17,13 +18,14 @@ const PRIORITIES = [
 
 export default function KanbanBoard() {
   const qc = useQueryClient()
+  const { toast } = useToast()
   const [showAdd, setShowAdd] = useState(false)
   const [dragging, setDragging] = useState<string | null>(null)
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' })
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['tasks'],
-    queryFn: () => getTasks().then(r => r.data.tasks)
+    queryFn: () => getTasks()
   })
 
   const createMut = useMutation({
@@ -32,6 +34,14 @@ export default function KanbanBoard() {
       qc.invalidateQueries({ queryKey: ['tasks'] })
       setShowAdd(false)
       setNewTask({ title: '', description: '', priority: 'medium' })
+      toast({ title: 'Success', description: 'Task created successfully' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to create task',
+        variant: 'destructive'
+      })
     }
   })
 
@@ -42,7 +52,17 @@ export default function KanbanBoard() {
 
   const deleteMut = useMutation({
     mutationFn: deleteTask,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      toast({ title: 'Success', description: 'Task deleted' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to delete task',
+        variant: 'destructive'
+      })
+    }
   })
 
   const tasks: any[] = data || []
@@ -56,7 +76,17 @@ export default function KanbanBoard() {
 
   const handleDrop = (e: React.DragEvent, colId: string) => {
     e.preventDefault()
-    if (dragging) statusMut.mutate({ id: dragging, status: colId })
+    if (dragging) {
+      statusMut.mutate({ id: dragging, status: colId }, {
+        onError: (err: any) => {
+          toast({
+            title: 'Error',
+            description: err?.response?.data?.message || 'Failed to update task status',
+            variant: 'destructive'
+          })
+        }
+      })
+    }
     setDragging(null)
   }
 

@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getMeeting, summarizeMeeting } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { format } from 'date-fns'
 import { ArrowLeft, Bot, Clock, Users, CheckCircle2, Circle, FileText, Video, Calendar, Loader2 } from 'lucide-react'
 
@@ -8,11 +9,20 @@ export default function MeetingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { toast } = useToast()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['meeting', id],
     queryFn: () => getMeeting(id!).then(r => r.data.meeting)
   })
+
+  if (error) {
+    toast({
+      title: 'Error',
+      description: (error as any)?.response?.data?.message || 'Failed to load meeting',
+      variant: 'destructive'
+    })
+  }
 
   const meeting = data
   const canGenerateSummary = Boolean(meeting?.transcript?.trim() || meeting?.recordingParts?.length)
@@ -22,6 +32,14 @@ export default function MeetingDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meeting', id] })
       qc.invalidateQueries({ queryKey: ['meetings'] })
+      toast({ title: 'Success', description: 'AI summary generated' })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.message || 'Failed to generate summary',
+        variant: 'destructive'
+      })
     }
   })
 

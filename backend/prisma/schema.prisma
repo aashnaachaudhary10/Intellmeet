@@ -12,75 +12,74 @@ datasource db {
 
 // User Model
 model User {
-  id                    Int           @id @default(autoincrement())
-  email                 String        @unique @db.VarChar(255)
-  name                  String        @db.VarChar(255)
-  password              String        @db.Text
-  avatar                String        @default("") @db.Text
-  role                  String        @default("member") @db.VarChar(50)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  password  String   @db.Text
+  avatar    String   @default("") @db.Text
+  role      String   @default("member") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relations
-  meetings              Meeting[]
-  tasks                 Task[]
-  refreshTokens         RefreshToken[]
+  tasks         Task[]
+  refreshTokens RefreshToken[]
+  meetings      Meeting[]
 
   @@map("users")
 }
 
 // Meeting Model
 model Meeting {
-  id                    Int           @id @default(autoincrement())
-  title                 String        @db.VarChar(255)
-  description           String        @default("") @db.Text
-  meetingCode           String        @unique @db.VarChar(50)
-  hostId                Int
-  host                  User          @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  participants          String        @default("[]") @db.Text // JSON array as string
-  status                String        @default("scheduled") @db.VarChar(50) // scheduled, active, ended
-  startedAt             DateTime?
-  endedAt               DateTime?
-  duration              Int           @default(0) // in minutes
-  transcript            String        @default("") @db.Text
-  recordingFolder       String        @default("") @db.Text
-  recordingParts        String        @default("[]") @db.Text // JSON array
-  summary               String        @default("") @db.Text
-  keyPoints             String        @default("[]") @db.Text // JSON array
-  actionItems           String        @default("[]") @db.Text // JSON array
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  id             Int      @id @default(autoincrement())
+  title          String   @db.VarChar(255)
+  description    String   @default("") @db.Text
+  meetingCode    String   @unique @db.VarChar(50)
+  hostId         String
+  host           User     @relation(fields: [hostId], references: [id])
+  participants   Json     @default("[]")
+  status         String   @default("scheduled") @db.VarChar(50)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  duration       Int      @default(0)
+  transcript     String   @default("") @db.Text
+  recordingFolder String  @default("") @db.Text
+  recordingParts Json     @default("[]")
+  summary        String   @default("") @db.Text
+  keyPoints      Json     @default("[]")
+  actionItems    Json     @default("[]")
+  chatMessages   Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  // Relations
-  tasks                 Task[]
+  tasks Task[]
 
   @@map("meetings")
 }
 
 // Task Model
 model Task {
-  id                    Int           @id @default(autoincrement())
-  title                 String        @db.VarChar(255)
-  description           String        @default("") @db.Text
-  status                String        @default("todo") @db.VarChar(50) // todo, in-progress, done
-  userId                Int
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  meetingId             Int?
-  meeting               Meeting?      @relation(fields: [meetingId], references: [id], onDelete: SetNull)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  id          Int      @id @default(autoincrement())
+  title       String   @db.VarChar(255)
+  description String   @default("") @db.Text
+  status      String   @default("todo") @db.VarChar(50)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meetingId   Int?
+  meeting     Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("tasks")
 }
 
 // Refresh Token Model
 model RefreshToken {
-  id                    Int           @id @default(autoincrement())
-  token                 String        @unique @db.Text
-  userId                Int
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt             DateTime
-  createdAt             DateTime      @default(now())
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
 }
