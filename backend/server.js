@@ -32,7 +32,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/tasks", taskRoutes);
-app.use("/api/files", fileRoutes);
+
 
 // Create HTTP server
 const server = http.createServer(app);
