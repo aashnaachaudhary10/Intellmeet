@@ -100,13 +100,14 @@ export default function MeetingRoom() {
       try {
         const res = await getMeeting(id!)
         if (!mounted) return
-        setMeeting(res.data.meeting)
-        setMessages(res.data.meeting.chatMessages?.map((m: any) => ({
+        const meeting = res.data.data.meeting
+        setMeeting(meeting)
+        setMessages(meeting.chatMessages?.map((m: any) => ({
           id: m._id, message: m.message, userId: m.sender,
           userName: m.senderName, timestamp: m.timestamp
         })) || [])
 
-        if (res.data.meeting.status === 'scheduled') {
+        if (meeting.status === 'scheduled') {
           await startMeeting(id!)
         }
 
