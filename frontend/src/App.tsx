@@ -26,27 +26,38 @@ import Layout from "@/components/Layout";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  if (!token) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  if (token) return <Navigate to="/app/dashboard" replace />;
+  if (isAuthenticated) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 
 export default function App() {
-  const { token, setUser, logout } = useAuthStore();
+  const { accessToken, isAuthenticated, setAccessToken, clearAuth, initializeFromStorage } = useAuthStore();
 
+  // Initialize auth from localStorage on mount
   useEffect(() => {
-    if (token) {
+    initializeFromStorage();
+  }, [initializeFromStorage]);
+
+  // Verify user session if logged in
+  useEffect(() => {
+    if (accessToken && isAuthenticated) {
       getMe()
-        .then((res) => setUser(res.data.user || res.data, token))
-        .catch(() => logout());
+        .then(() => {
+          // User is still authenticated, token is valid
+        })
+        .catch((error) => {
+          console.error("Session verification failed:", error);
+          clearAuth();
+        });
     }
   }, [token, setUser, logout]);
 

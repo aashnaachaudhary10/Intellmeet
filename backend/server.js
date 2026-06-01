@@ -1,16 +1,16 @@
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import aiRoutes from "./routes/ai.js";
 import taskRoutes from "./routes/taskRoutes.js";
-import fileRoutes from "./routes/fileRoutes.js";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
 import Meeting from "./models/Meeting.js";
+import { prisma } from "./config/prisma.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
 
@@ -177,16 +177,13 @@ io.on("connection", (socket) => {
   });
 });
 
-// Connect DB + start server
+// Error handler middleware (must be last)
+app.use(errorHandler);
+
+// Start server with Prisma
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected ✅");
-
-    server.listen(PORT, () => {  // ✅ ONLY THIS
-      console.log(`Server running on port ${PORT}`);
-    });
-
-  })
-  .catch(err => console.log("DB Error:", err));
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`📊 Database: PostgreSQL (Neon)`);
+});
