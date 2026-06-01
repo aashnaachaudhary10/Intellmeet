@@ -51,7 +51,13 @@ export const signup = async (req, res, next) => {
     });
 
     // Remove password from response
-    const { password: _, ...userResponse } = user;
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar || "",
+      role: user.role,
+    };
 
     return sendSuccess(res, 201, "User registered successfully", {
       user: userResponse,
@@ -59,6 +65,7 @@ export const signup = async (req, res, next) => {
       refreshToken,
     });
   } catch (error) {
+    console.error("Signup error:", error);
     next(error);
   }
 };
@@ -101,7 +108,13 @@ export const login = async (req, res, next) => {
     });
 
     // Remove password from response
-    const { password: _, ...userResponse } = user;
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar || "",
+      role: user.role,
+    };
 
     return sendSuccess(res, 200, "Login successful", {
       user: userResponse,
@@ -109,6 +122,7 @@ export const login = async (req, res, next) => {
       refreshToken,
     });
   } catch (error) {
+    console.error("Login error:", error);
     next(error);
   }
 };

@@ -23,14 +23,19 @@ API.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    // Skip refresh logic for auth endpoints themselves
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
+                           originalRequest.url?.includes('/auth/signup') ||
+                           originalRequest.url?.includes('/auth/logout')
+
     // If 401 and not already retrying, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
 
       try {
         const refreshToken = useAuthStore.getState().refreshToken
         if (!refreshToken) {
-          throw new Error('No refresh token')
+          throw new Error('No refresh token available')
         }
 
         // Call refresh endpoint
@@ -56,6 +61,7 @@ API.interceptors.response.use(
       }
     }
 
+    // For other errors, just reject
     return Promise.reject(error)
   }
 )

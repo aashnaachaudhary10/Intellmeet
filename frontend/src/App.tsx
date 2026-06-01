@@ -59,7 +59,7 @@ export default function App() {
           clearAuth();
         });
     }
-  }, [token, setUser, logout]);
+  }, [accessToken, isAuthenticated, clearAuth]);
 
   return (
     <QueryClientProvider client={queryClient}>

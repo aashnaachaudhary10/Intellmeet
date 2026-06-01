@@ -29,10 +29,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isLoading: false,
   isAuthenticated: false,
 
-  setUser: (user, accessToken, refreshToken) => {
-    const normalizedUser = {
-      ...user,
+  setUser: (user: User, accessToken: string, refreshToken: string) => {
+    const normalizedUser: User = {
       id: user.id || '',
+      name: user.name || 'User',
+      email: user.email || '',
       avatar: user.avatar || '',
       role: user.role || 'member',
     }
@@ -43,7 +44,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       user: normalizedUser, 
       accessToken, 
       refreshToken,
-      isAuthenticated: true 
+      isAuthenticated: true,
+      isLoading: false
     })
   },
 
