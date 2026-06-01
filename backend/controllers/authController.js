@@ -6,6 +6,8 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt.js";
 import { sendError, sendSuccess } from "../utils/response.js";
+import { uploadToCloudinary } from "../config/cloudinary.js";
+import fs from "fs";
 
 // SIGNUP
 export const signup = async (req, res, next) => {
@@ -201,7 +203,16 @@ export const updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const name = req.body.name;
-    const avatarUrl = req.file?.path || req.body.avatar;
+    let avatarUrl = req.body.avatar;
+
+    if (req.file) {
+      try {
+        avatarUrl = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
+      } catch (uploadError) {
+        console.error('Avatar upload failed:', uploadError);
+        return sendError(res, 500, 'Failed to upload avatar');
+      }
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },

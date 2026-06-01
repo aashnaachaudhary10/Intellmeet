@@ -15,8 +15,14 @@ dotenv.config();
 
 const app = express(); // ✅ FIRST create app
 
-// Middleware
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+
+const corsOptions = {
+  origin: FRONTEND_ORIGIN,
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rate limiter
@@ -38,7 +44,10 @@ const server = http.createServer(app);
 
 // Socket setup
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: FRONTEND_ORIGIN,
+    credentials: true,
+  },
 });
 
 // Store participants in memory: roomId -> map of socketId -> participant info
@@ -103,7 +112,7 @@ io.on("connection", (socket) => {
         };
 
         const meeting = await prisma.meeting.findUnique({
-          where: { id: Number(msgPayload.meetingId) },
+          where: { id: msgPayload.meetingId },
         });
 
         if (meeting) {
@@ -115,7 +124,7 @@ io.on("connection", (socket) => {
           ];
 
           await prisma.meeting.update({
-            where: { id: Number(msgPayload.meetingId) },
+            where: { id: msgPayload.meetingId },
             data: { chatMessages: nextMessages },
           });
         }
