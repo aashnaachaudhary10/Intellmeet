@@ -72,7 +72,7 @@ export const getAnalytics = () => API.get('/ai/analytics')
 
 // Docs / file management
 export const DOCS_ROOT_PATH =
-  import.meta.env.VITE_DOCS_ROOT || 'D:/Projects/aa/Intellmeet'
+  import.meta.env.VITE_DOCS_ROOT || "C:/Users/jiyac/Intellmeet"
 
 export type FileListItem = {
   name: string
