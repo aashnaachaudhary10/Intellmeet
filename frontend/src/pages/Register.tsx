@@ -2,34 +2,80 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { signup } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { Bot, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 
 export default function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
   const { setUser } = useAuthStore()
   const navigate = useNavigate()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    if (form.password !== form.confirm) {
-      setError('Passwords do not match')
+    setErrors({})
+    setSuccess(false)
+
+    // Validation
+    const newErrors: { [key: string]: string } = {}
+    
+    if (!form.name.trim()) newErrors.name = 'Name is required'
+    if (!form.email.trim()) newErrors.email = 'Email is required'
+    if (form.password.length < 8) newErrors.password = 'Password must be at least 8 characters'
+    if (form.password !== form.confirm) newErrors.confirm = 'Passwords do not match'
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      toast({
+        title: 'Validation Error',
+        description: 'Please fix the errors below',
+        variant: 'destructive',
+      })
       return
     }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
+
     setLoading(true)
     try {
-      const res = await signup({ name: form.name, email: form.email, password: form.password })
-      setUser(res.data.user, res.data.token)
-      navigate('/app/dashboard')
+      const response = await signup({ 
+        name: form.name.trim(), 
+        email: form.email.trim(), 
+        password: form.password 
+      })
+
+      // Handle successful response
+      if (response.data?.data) {
+        const { user, accessToken, refreshToken } = response.data.data
+        
+        // Set user in store
+        setUser(user, accessToken, refreshToken)
+        setSuccess(true)
+        
+        toast({
+          title: 'Success',
+          description: 'Account created! Redirecting...',
+          variant: 'default',
+        })
+
+        // Navigate after short delay
+        setTimeout(() => {
+          navigate('/app/dashboard')
+        }, 500)
+      } else {
+        throw new Error(response.data?.message || 'Invalid response format')
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed.')
+      const errorMsg = err.response?.data?.message || err.message || 'Registration failed. Please try again.'
+      setErrors({ form: errorMsg })
+      
+      toast({
+        title: 'Registration Failed',
+        description: errorMsg,
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -56,12 +102,6 @@ export default function Register() {
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Full Name</label>
@@ -71,8 +111,11 @@ export default function Register() {
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="John Doe"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className={`w-full bg-slate-800 border rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                  errors.name ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                }`}
               />
+              {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
             </div>
 
             <div>
@@ -83,8 +126,11 @@ export default function Register() {
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="you@company.com"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className={`w-full bg-slate-800 border rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                  errors.email ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                }`}
               />
+              {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
             </div>
 
             <div>
@@ -95,14 +141,17 @@ export default function Register() {
                   required
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
-                  placeholder="Min 6 characters"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  placeholder="Min 8 characters"
+                  className={`w-full bg-slate-800 border rounded-lg px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                    errors.password ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
                   {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
             </div>
 
             <div>
@@ -113,8 +162,11 @@ export default function Register() {
                 value={form.confirm}
                 onChange={e => setForm({ ...form, confirm: e.target.value })}
                 placeholder="••••••••"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className={`w-full bg-slate-800 border rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                  errors.confirm ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                }`}
               />
+              {errors.confirm && <p className="text-red-400 text-xs mt-1">{errors.confirm}</p>}
             </div>
 
             <button

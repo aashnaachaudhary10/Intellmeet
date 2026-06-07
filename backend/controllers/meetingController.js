@@ -1,328 +1,256 @@
-import Meeting from "../models/Meeting.js";
-import User from "../models/user.js";
+import { prisma } from "../config/prisma.js";
+import { sendSuccess, sendError } from "../utils/response.js";
+
+const HOST_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  avatar: true,
+  role: true,
+};
 
 const calculateDurationMinutes = (startedAt, endedAt = new Date()) => {
   if (!startedAt) return 0;
   return Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000));
 };
 
-//  Create Meeting
+// Create Meeting
 export const createMeeting = async (req, res) => {
   try {
     const { title, description, scheduledTime } = req.body;
-    
-    // Auto-generate meeting code
     const meetingCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    const currentUser = req.user?.id ? await User.findById(req.user.id).select("name") : null;
-    const host = currentUser?.name || "Host";
+    const host = req.user?.name || "Host";
 
-    const newMeeting = new Meeting({
-      title: title || "New Meeting",
-      description,
-      host,
-      meetingCode,
-      participants: [host],
-      recordingFolder: `meeting-${meetingCode}`,
-      startedAt: scheduledTime ? undefined : new Date(),
-      status: scheduledTime ? "scheduled" : "active",
+    const newMeeting = await prisma.meeting.create({
+      data: {
+        title: title || "New Meeting",
+        description: description || "",
+        hostId: req.user.id,
+        meetingCode,
+        participants: [host],
+        recordingFolder: `meeting-${meetingCode}`,
+        startedAt: scheduledTime ? undefined : new Date(),
+        status: scheduledTime ? "scheduled" : "active",
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
     });
 
-    await newMeeting.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Meeting created successfully",
-      meeting: newMeeting,
-    });
+    return sendSuccess(res, 201, "Meeting created successfully", { meeting: newMeeting });
   } catch (err) {
     console.error("Create Meeting Error:", err);
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return sendError(res, 500, err.message);
   }
 };
 
 export const startMeeting = async (req, res) => {
   try {
-    const meeting = await Meeting.findById(req.params.id);
-    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+    const meeting = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: {
+        status: "active",
+        startedAt: new Date(),
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
 
-    meeting.status = "active";
-    if (!meeting.startedAt) meeting.startedAt = new Date();
-    await meeting.save();
-
-    res.status(200).json({ success: true, meeting });
+    return sendSuccess(res, 200, "Meeting started", { meeting });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 500, err.message);
   }
 };
 
 export const endMeeting = async (req, res) => {
   try {
-    const meeting = await Meeting.findById(req.params.id);
-    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: req.params.id },
+    });
 
-    meeting.status = "ended";
-    meeting.endedAt = new Date();
-    meeting.duration = calculateDurationMinutes(meeting.startedAt, meeting.endedAt);
-    await meeting.save();
+    if (!meeting) return sendError(res, 404, "Meeting not found");
 
-    res.status(200).json({ success: true, meeting });
+    const endedAt = new Date();
+    const duration = calculateDurationMinutes(meeting.startedAt, endedAt);
+
+    const updatedMeeting = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: {
+        status: "ended",
+        endedAt,
+        duration,
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
+
+    return sendSuccess(res, 200, "Meeting ended", { meeting: updatedMeeting });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 500, err.message);
   }
 };
 
 export const saveTranscript = async (req, res) => {
   try {
     const { transcript } = req.body;
-    const meeting = await Meeting.findByIdAndUpdate(
-      req.params.id,
-      { transcript: transcript || "" },
-      { new: true }
-    );
 
-    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
-    res.status(200).json({ success: true, meeting });
+    const meeting = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: { transcript: transcript || "" },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
+
+    return sendSuccess(res, 200, "Transcript saved", { meeting });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 500, err.message);
   }
 };
 
 export const saveSummary = async (req, res) => {
   try {
     const { summary, keyPoints = [], actionItems = [] } = req.body;
-    const meeting = await Meeting.findByIdAndUpdate(
-      req.params.id,
-      { summary: summary || "", keyPoints, actionItems },
-      { new: true, runValidators: true }
-    );
 
-    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
-    res.status(200).json({ success: true, meeting });
+    const meeting = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: {
+        summary: summary || "",
+        keyPoints,
+        actionItems,
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
+
+    return sendSuccess(res, 200, "Summary saved", { meeting });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 500, err.message);
   }
 };
 
 export const saveRecordingPart = async (req, res) => {
   try {
     const { key, url, name, size, partNumber, uploadedBy, uploadedByName, folder } = req.body;
-    
-    const existing = await Meeting.findOne({
-      _id: req.params.id,
-      "recordingParts.partNumber": partNumber
+
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: req.params.id },
+      include: {
+        host: { select: HOST_SELECT },
+      },
     });
 
-    if (existing) {
-      return res.status(200).json({ success: true, meeting: existing });
+    if (!meeting) return sendError(res, 404, "Meeting not found");
+
+    const parts = Array.isArray(meeting.recordingParts) ? [...meeting.recordingParts] : [];
+
+    const exists = parts.some((p) => p.partNumber === partNumber);
+    if (exists) {
+      return sendSuccess(res, 200, "Recording part already exists", { meeting });
     }
 
-    const meeting = await Meeting.findByIdAndUpdate(req.params.id, {
-      $set: { recordingFolder: folder },
-      $push: {
-        recordingParts: {
-          key,
-          url,
-          name,
-          size,
-          partNumber,
-          uploadedBy,
-          uploadedByName,
-        },
-      },
-    }, { new: true });
+    const updatedParts = [...parts, { key, url, name, size, partNumber, uploadedBy, uploadedByName }];
 
-    if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
-    res.status(200).json({ success: true, meeting });
+    const updated = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: {
+        recordingFolder: folder,
+        recordingParts: updatedParts,
+      },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
+
+    return sendSuccess(res, 200, "Recording part saved", { meeting: updated });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return sendError(res, 500, err.message);
   }
 };
 
-//  Join Meeting
 export const joinMeeting = async (req, res) => {
   try {
     const { meetingCode, meetingId, userName } = req.body;
-    
-    // Look up by meetingCode first, otherwise fallback to meetingId if needed
-    const codeToSearch = meetingCode || meetingId;
-    const meeting = await Meeting.findOne({ meetingCode: codeToSearch });
 
-    if (!meeting) {
-      return res.status(404).json({
-        success: false,
-        message: "Meeting not found",
-      });
-    }
-
-    if (!meeting.participants.includes(userName)) {
-      meeting.participants.push(userName);
-      await meeting.save();
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Joined meeting successfully",
-      meeting,
+    const meeting = await prisma.meeting.findFirst({
+      where: { meetingCode: meetingCode || meetingId },
     });
+
+    if (!meeting) return sendError(res, 404, "Meeting not found");
+
+    const participants = Array.isArray(meeting.participants) ? [...meeting.participants] : [];
+    const lowerName = (userName || "").trim();
+
+    if (lowerName && !participants.some((p) => String(p).toLowerCase() === lowerName.toLowerCase())) {
+      participants.push(lowerName);
+    }
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { participants },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
+
+    return sendSuccess(res, 200, "Joined meeting successfully", { meeting: updated });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return sendError(res, 500, err.message);
   }
 };
 
-//  Dashboard Data
 export const getDashboardData = async (req, res) => {
   try {
-    const meetings = await Meeting.find().sort({ createdAt: -1 });
+    const meetings = await prisma.meeting.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        host: { select: HOST_SELECT },
+      },
+    });
 
-    res.status(200).json({
-      success: true,
+    return sendSuccess(res, 200, "Dashboard data fetched", {
       totalMeetings: meetings.length,
       meetings,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return sendError(res, 500, err.message);
   }
 };
 
-// Get Meeting By ID
 export const getMeetingById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const meeting = await Meeting.findById(id);
-
-    if (!meeting) {
-      return res.status(404).json({
-        success: false,
-        message: "Meeting not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      meeting,
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: req.params.id },
+      include: {
+        host: { select: HOST_SELECT },
+      },
     });
+
+    if (!meeting) return sendError(res, 404, "Meeting not found");
+
+    return sendSuccess(res, 200, "Meeting fetched", { meeting });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Invalid Meeting ID or Server Error",
-    });
+    return sendError(res, 500, "Invalid Meeting ID or Server Error");
   }
 };
 
-//  Delete Meeting
 export const deleteMeeting = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    await Meeting.findByIdAndDelete(id);
-
-    res.status(200).json({
-      success: true,
-      message: "Meeting deleted successfully",
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: req.params.id },
     });
+
+    if (!meeting) return sendError(res, 404, "Meeting not found");
+
+    await prisma.meeting.delete({
+      where: { id: req.params.id },
+    });
+
+    return sendSuccess(res, 200, "Meeting deleted successfully");
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return sendError(res, 500, err.message);
   }
 };
-
-
-
-
-// const Meeting = require("../models/Meeting");
-
-// // Create Meeting
-// exports.createMeeting = async (req, res) => {
-//   try {
-//     const { title, host } = req.body;
-
-//     const meetingCode = Math.random().toString(36).substring(2, 8);
-
-//     const meeting = await Meeting.create({
-//       title,
-//       host,
-//       meetingCode,
-//       participants: [host],
-//     });
-
-//     res.status(201).json({
-//       success: true,
-//       message: "Meeting created successfully",
-//       meeting,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// // Join Meeting
-// exports.joinMeeting = async (req, res) => {
-//   try {
-//     const { meetingCode, userName } = req.body;
-
-//     const meeting = await Meeting.findOne({ meetingCode });
-
-//     if (!meeting) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Meeting not found",
-//       });
-//     }
-
-//     if (!meeting.participants.includes(userName)) {
-//       meeting.participants.push(userName);
-//       await meeting.save();
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Joined successfully",
-//       meeting,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// // Delete Meeting
-// exports.deleteMeeting = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     await Meeting.findByIdAndDelete(id);
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Meeting deleted successfully",
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };
-
-// // Dashboard API
-// exports.getDashboardData = async (req, res) => {
-//   try {
-//     const meetings = await Meeting.find().sort({ createdAt: -1 });
-
-//     res.status(200).json({
-//       success: true,
-//       totalMeetings: meetings.length,
-//       meetings,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// };

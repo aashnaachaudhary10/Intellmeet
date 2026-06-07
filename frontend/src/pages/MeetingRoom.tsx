@@ -100,13 +100,14 @@ export default function MeetingRoom() {
       try {
         const res = await getMeeting(id!)
         if (!mounted) return
-        setMeeting(res.data.meeting)
-        setMessages(res.data.meeting.chatMessages?.map((m: any) => ({
+        const meeting = res.data.data.meeting
+        setMeeting(meeting)
+        setMessages(meeting.chatMessages?.map((m: any) => ({
           id: m._id, message: m.message, userId: m.sender,
           userName: m.senderName, timestamp: m.timestamp
         })) || [])
 
-        if (res.data.meeting.status === 'scheduled') {
+        if (meeting.status === 'scheduled') {
           await startMeeting(id!)
         }
 
@@ -128,6 +129,7 @@ export default function MeetingRoom() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       localStreamRef.current = stream
+      screenStreamRef.current = null
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
         localVideoRef.current.muted = true
@@ -140,6 +142,37 @@ export default function MeetingRoom() {
     }
   }
 
+  const addTrackToAllPeers = (track: MediaStreamTrack) => {
+    peersRef.current.forEach((pc, socketId) => {
+      try {
+        pc.addTrack(track, localStreamRef.current || screenStreamRef.current!)
+        socket.emit('ice-candidate', { to: socketId })
+      } catch (err) {
+        console.warn('Failed to add track to peer', err)
+      }
+    })
+  }
+
+  const removeTrackFromAllPeers = (trackKind: 'video' | 'audio') => {
+    const sendersToRemove: RTCRtpSender[] = []
+    peersRef.current.forEach((pc) => {
+      pc.getSenders().forEach((sender) => {
+        if (sender.track?.kind === trackKind) {
+          sendersToRemove.push(sender)
+        }
+      })
+    })
+    sendersToRemove.forEach((sender) => {
+      const { socketId } = [...peersRef.current.entries()].find(([, pc]) => pc.getSenders().includes(sender)) || []
+      if (socketId && sender.track) {
+        try {
+          peersRef.current.get(socketId)?.removeTrack(sender)
+          socket.emit('ice-candidate', { to: socketId })
+        } catch {}
+      }
+    })
+  }
+
   // ── WebRTC peer creation ─────────────────────────────────────────
   const createPeer = useCallback((targetSocketId: string) => {
     const pc = new RTCPeerConnection({
@@ -149,9 +182,17 @@ export default function MeetingRoom() {
       ]
     })
 
-    localStreamRef.current?.getTracks().forEach(track => {
-      pc.addTrack(track, localStreamRef.current!)
-    })
+    if (!isSharing && localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!)
+      })
+    }
+
+    if (isSharing && screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, screenStreamRef.current!)
+      })
+    }
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -160,33 +201,43 @@ export default function MeetingRoom() {
     }
 
     pc.ontrack = (e) => {
-      setParticipants(prev => {
+      setParticipants((prev) => {
         const updated = new Map(prev)
-        const p = updated.get(targetSocketId)
-        if (p) updated.set(targetSocketId, { ...p, stream: e.streams[0] })
+        const existing = updated.get(targetSocketId)
+        const stream = e.streams[0]
+        if (!stream) return updated
+        updated.set(targetSocketId, {
+          ...(existing || { socketId: targetSocketId, userId: '', userName: '' }),
+          stream,
+        })
         return updated
       })
     }
 
     peersRef.current.set(targetSocketId, pc)
     return pc
-  }, [socket, roomId])
+  }, [socket, roomId, isSharing])
 
   // ── Socket events ────────────────────────────────────────────────
   useEffect(() => {
-    socket.on('room-participants', (list: Participant[]) => {
-      list.forEach(async (p) => {
-        if (p.socketId === socket.id) return
-        setParticipants(prev => new Map(prev).set(p.socketId, p))
+    socket.on('room-participants', async (list: Participant[]) => {
+      const existingIds = new Set(Array.from(participants.values()).map((p) => p.socketId))
+      for (const p of list) {
+        if (p.socketId === socket.id || existingIds.has(p.socketId)) continue
+        setParticipants((prev) => new Map(prev).set(p.socketId, p))
         const pc = createPeer(p.socketId)
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         socket.emit('webrtc-offer', { to: p.socketId, offer, from: socket.id, fromName: user?.name })
-      })
+      }
     })
 
     socket.on('user-joined', async ({ socketId, userId, userName }: any) => {
-      setParticipants(prev => new Map(prev).set(socketId, { socketId, userId, userName }))
+      setParticipants((prev) => new Map(prev).set(socketId, { socketId, userId, userName, stream: undefined }))
+      const offerPc = createPeer(socketId)
+      const offer = await offerPc.createOffer()
+      await offerPc.setLocalDescription(offer)
+      socket.emit('webrtc-offer', { to: socketId, offer, from: socket.id, fromName: user?.name })
     })
 
     socket.on('webrtc-offer', async ({ offer, from, fromName }: any) => {
@@ -299,9 +350,15 @@ export default function MeetingRoom() {
   const toggleMute = () => {
     const stream = localStreamRef.current
     if (stream) {
-      stream.getAudioTracks().forEach(t => (t.enabled = isMuted))
-      setIsMuted(!isMuted)
-      socket.emit('toggle-audio', { roomId, userId: user?.id, isMuted: !isMuted })
+      const nextMuted = !isMuted
+      stream.getAudioTracks().forEach(t => (t.enabled = !nextMuted))
+      setIsMuted(nextMuted)
+      socket.emit('toggle-audio', { roomId, userId: user?.id, isMuted: nextMuted })
+      if (nextMuted) {
+        recognitionRef.current?.stop()
+      } else {
+        recognitionRef.current?.start()
+      }
     }
   }
 

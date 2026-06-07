@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  password  String   @db.Text
+  avatar    String   @default("") @db.Text
+  role      String   @default("member") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks         Task[]
+  refreshTokens RefreshToken[]
+  meetings      Meeting[]
+
+  @@map("users")
+}
+
+// Meeting Model
+model Meeting {
+  id             String   @id @default(uuid())
+  title          String   @db.VarChar(255)
+  description    String   @default("") @db.Text
+  meetingCode    String   @unique @db.VarChar(50)
+  hostId         String
+  host           User     @relation(fields: [hostId], references: [id])
+  participants   Json     @default("[]")
+  status         String   @default("scheduled") @db.VarChar(50)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  duration       Int      @default(0)
+  transcript     String   @default("") @db.Text
+  recordingFolder String  @default("") @db.Text
+  recordingParts Json     @default("[]")
+  summary        String   @default("") @db.Text
+  keyPoints      Json     @default("[]")
+  actionItems    Json     @default("[]")
+  chatMessages   Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tasks Task[]
+
+  @@map("meetings")
+}
+
+// Task Model
+model Task {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(255)
+  description String   @default("") @db.Text
+  status      String   @default("todo") @db.VarChar(50)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meetingId   String?
+  meeting     Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tasks")
+}
+
+// Refresh Token Model
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}

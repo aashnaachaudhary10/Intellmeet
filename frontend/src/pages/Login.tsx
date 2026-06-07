@@ -2,26 +2,58 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { login } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { Bot, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
   const { setUser } = useAuthStore()
   const navigate = useNavigate()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    setErrors({})
+    setSuccess(false)
     setLoading(true)
+
     try {
-      const res = await login(form)
-      setUser(res.data.user, res.data.token)
-      navigate('/app/dashboard')
+      const response = await login(form)
+      
+      // Handle successful response
+      if (response.data?.data) {
+        const { user, accessToken, refreshToken } = response.data.data
+        
+        // Set user in store
+        setUser(user, accessToken, refreshToken)
+        setSuccess(true)
+        
+        toast({
+          title: 'Success',
+          description: 'Login successful! Redirecting...',
+          variant: 'default',
+        })
+
+        // Navigate after short delay
+        setTimeout(() => {
+          navigate('/app/dashboard')
+        }, 500)
+      } else {
+        throw new Error(response.data?.message || 'Invalid response format')
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.')
+      const errorMsg = err.response?.data?.message || err.message || 'Login failed. Please try again.'
+      setErrors({ form: errorMsg })
+      
+      toast({
+        title: 'Login Failed',
+        description: errorMsg,
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -51,12 +83,6 @@ export default function Login() {
 
         {/* Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
-          {error && (
-            <div className="mb-4 p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
@@ -66,8 +92,11 @@ export default function Login() {
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="you@company.com"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                className={`w-full bg-slate-800 border rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                  errors.email ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                }`}
               />
+              {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
             </div>
 
             <div>
@@ -79,7 +108,9 @@ export default function Login() {
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+                  className={`w-full bg-slate-800 border rounded-lg px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition ${
+                    errors.password ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-700 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                 />
                 <button
                   type="button"
@@ -89,6 +120,7 @@ export default function Login() {
                   {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
             </div>
 
             <button

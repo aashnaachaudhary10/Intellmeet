@@ -1,12 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { getAnalytics } from '../services/api'
+import { useToast } from '../hooks/use-toast'
 import { BarChart2, Clock, Video, CheckCircle2, TrendingUp, Loader2 } from 'lucide-react'
 
 export default function Analytics() {
-  const { data, isLoading } = useQuery({
+  const { toast } = useToast()
+  const { data, isLoading, error } = useQuery({
     queryKey: ['analytics'],
     queryFn: () => getAnalytics().then(r => r.data)
   })
+
+  if (error) {
+    toast({
+      title: 'Error',
+      description: (error as any)?.response?.data?.message || 'Failed to load analytics',
+      variant: 'destructive'
+    })
+  }
 
   if (isLoading) return (
     <div className="p-8 flex items-center justify-center h-64">

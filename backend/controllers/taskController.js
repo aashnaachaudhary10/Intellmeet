@@ -1,74 +1,125 @@
-import Task from "../models/Task.js";
+import { prisma } from "../config/prisma.js";
+import { sendSuccess, sendError } from "../utils/response.js";
 
-// @desc    Get all tasks for logged in user
-// @route   GET /api/tasks
 export const getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ user: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json(tasks);
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    const tasks = await prisma.task.findMany({
+      where: { userId: req.user.id },
+      include: {
+        user: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return sendSuccess(res, 200, "Tasks fetched", { tasks });
+  } catch (err) {
+    return sendError(res, 500, err.message);
   }
 };
 
-// @desc    Create a new task
-// @route   POST /api/tasks
 export const createTask = async (req, res) => {
   try {
     const { title, description, status, meetingId } = req.body;
-    
+
     if (!title) {
-      return res.status(400).json({ message: "Please provide a task title" });
+      return sendError(res, 400, "Please provide a task title");
     }
 
-    const task = await Task.create({
-      title,
-      description,
-      status: status || "todo",
-      user: req.user.id,
-      meetingId
+    const task = await prisma.task.create({
+      data: {
+        title,
+        description: description || "",
+        status: status || "todo",
+        userId: req.user.id,
+        meetingId: meetingId || undefined,
+      },
+      include: {
+        user: true,
+      },
     });
-    
-    res.status(201).json(task);
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+
+    return sendSuccess(res, 201, "Task created", { task });
+  } catch (err) {
+    return sendError(res, 500, err.message);
   }
 };
 
-// @desc    Update a task (status, title, etc)
-// @route   PUT /api/tasks/:id
 export const updateTask = async (req, res) => {
   try {
     const { title, description, status } = req.body;
-    const task = await Task.findOne({ _id: req.params.id, user: req.user.id });
-    
-    if (!task) {
-      return res.status(404).json({ message: "Task not found" });
+
+    const existing = await prisma.task.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+
+    if (!existing) {
+      return sendError(res, 404, "Task not found");
     }
 
-    if (title) task.title = title;
-    if (description !== undefined) task.description = description;
-    if (status) task.status = status;
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        ...(title !== undefined ? { title } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(status ? { status } : {}),
+      },
+      include: {
+        user: true,
+      },
+    });
 
-    const updatedTask = await task.save();
-    res.status(200).json(updatedTask);
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    return sendSuccess(res, 200, "Task updated", { task: updated });
+  } catch (err) {
+    return sendError(res, 500, err.message);
   }
 };
 
-// @desc    Delete a task
-// @route   DELETE /api/tasks/:id
+export const updateTaskStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return sendError(res, 400, "Status is required");
+    }
+
+    const existing = await prisma.task.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+
+    if (!existing) {
+      return sendError(res, 404, "Task not found");
+    }
+
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data: { status },
+      include: {
+        user: true,
+      },
+    });
+
+    return sendSuccess(res, 200, "Task status updated", { task: updated });
+  } catch (err) {
+    return sendError(res, 500, err.message);
+  }
+};
+
 export const deleteTask = async (req, res) => {
   try {
-    const task = await Task.findOneAndDelete({ _id: req.params.id, user: req.user.id });
-    
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+    });
+
     if (!task) {
-      return res.status(404).json({ message: "Task not found" });
+      return sendError(res, 404, "Task not found");
     }
-    
-    res.status(200).json({ message: "Task deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+
+    await prisma.task.delete({
+      where: { id: req.params.id },
+    });
+
+    return sendSuccess(res, 200, "Task deleted successfully");
+  } catch (err) {
+    return sendError(res, 500, err.message);
   }
 };

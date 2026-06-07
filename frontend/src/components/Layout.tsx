@@ -26,7 +26,10 @@ export default function Layout() {
 
   const handleLogout = async () => {
     try {
-      await logoutAPI();
+      const refreshToken = useAuthStore.getState().refreshToken
+      if (refreshToken) {
+        await logoutAPI(refreshToken)
+      }
     } catch {}
 
     logout();

@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
 import authMiddleware from "../middleware/authMiddleware.js";
+import { validateRequest } from "../middleware/validateRequest.js";
 
 import {
   createMeeting,
@@ -14,9 +15,13 @@ import {
   saveSummary,
   saveRecordingPart,
 } from "../controllers/meetingController.js";
+import {
+  createMeetingSchema,
+  joinMeetingSchema,
+} from "../validators/authValidators.js";
 
-router.post("/create", authMiddleware, createMeeting);
-router.post("/join", authMiddleware, joinMeeting);
+router.post("/create", authMiddleware, validateRequest(createMeetingSchema, "body"), createMeeting);
+router.post("/join", authMiddleware, validateRequest(joinMeetingSchema, "body"), joinMeeting);
 router.delete("/delete/:id", authMiddleware, deleteMeeting);
 router.get("/dashboard", authMiddleware, getDashboardData);
 router.patch("/:id/start", authMiddleware, startMeeting);

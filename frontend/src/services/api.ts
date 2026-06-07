@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useAuthStore } from '../store/authStore'
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -7,32 +8,85 @@ const API = axios.create({
   timeout: 10000
 })
 
+// Request interceptor - add access token
 API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  const accessToken = useAuthStore.getState().accessToken
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
   return config
 })
 
+// Response interceptor - handle token refresh and errors
 API.interceptors.response.use(
   (res) => res,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config
+
+    // Skip refresh logic for auth endpoints themselves
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
+                           originalRequest.url?.includes('/auth/signup') ||
+                           originalRequest.url?.includes('/auth/logout')
+
+    // If 401 and not already retrying, try to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest._retry = true
+
+      try {
+        const refreshToken = useAuthStore.getState().refreshToken
+        if (!refreshToken) {
+          throw new Error('No refresh token available')
+        }
+
+        // Call refresh endpoint
+        const response = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          { timeout: 10000 }
+        )
+
+        const { accessToken: newAccessToken } = response.data.data
+
+        // Update store with new access token
+        useAuthStore.getState().setAccessToken(newAccessToken)
+
+        // Retry original request with new token
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+        return API(originalRequest)
+      } catch (refreshError) {
+        // Refresh failed, clear auth and redirect
+        useAuthStore.getState().clearAuth()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      }
     }
+
+    // For other errors, just reject
     return Promise.reject(error)
   }
 )
 
 // ── Auth ──────────────────────────────────────────────
-export const signup = (data: { name: string; email: string; password: string }) =>
+export const signup = (data: { 
+  name: string
+  email: string
+  password: string 
+}) =>
   API.post('/auth/signup', data)
 
-export const login = (data: { email: string; password: string }) =>
+export const login = (data: { 
+  email: string
+  password: string 
+}) =>
   API.post('/auth/login', data)
 
+export const refreshAccessToken = (refreshToken: string) =>
+  API.post('/auth/refresh', { refreshToken })
+
+export const logout = (refreshToken?: string) =>
+  API.post('/auth/logout', { refreshToken })
+
 export const getMe = () => API.get('/auth/me')
-export const logout = () => API.post('/auth/logout')
 
 // ── Meetings ──────────────────────────────────────────
 export const getMeetings = () => API.get('/meetings/dashboard')
@@ -50,7 +104,7 @@ export const saveSummary = (id: string, data: any) => API.patch(`/meetings/${id}
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
 // ── Tasks ─────────────────────────────────────────────
-export const getTasks = () => API.get('/tasks')
+export const getTasks = () => API.get('/tasks').then(r => r.data.tasks)
 export const createTask = (data: any) => API.post('/tasks', data)
 export const updateTaskStatus = (id: string, status: string) =>
   API.patch(`/tasks/${id}/status`, { status })
@@ -61,7 +115,6 @@ export const deleteTask = (id: string) => API.delete(`/tasks/${id}`)
 export const getUsers = () => API.get('/users')
 export const getProfile = () => API.get('/users/profile')
 export const updateProfile = (data: FormData | any) => {
-  // If it's pure FormData (for file uploads), Axios sets the correct multipart/form-data headers automatically.
   return API.put('/auth/update', data)
 }
 

@@ -1,13 +1,39 @@
 import express from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
-import { signup, login, getMe, updateProfile } from "../controllers/authController.js";
+import { validateRequest } from "../middleware/validateRequest.js";
+import {
+  signup,
+  login,
+  refreshAccessToken,
+  logout,
+  getMe,
+  updateProfile,
+} from "../controllers/authController.js";
+import {
+  signupSchema,
+  loginSchema,
+  refreshTokenSchema,
+  logoutSchema,
+  updateProfileSchema,
+} from "../validators/authValidators.js";
 import upload from "../config/cloudinary.js";
 
 const router = express.Router();
-router.get("/me", authMiddleware, getMe);
-router.put("/update", authMiddleware, upload.single("avatar"), updateProfile);
 
-router.post("/signup", signup);
-router.post("/login", login);
+// Public endpoints
+router.post("/signup", validateRequest(signupSchema, "body"), signup);
+router.post("/login", validateRequest(loginSchema, "body"), login);
+router.post("/refresh", validateRequest(refreshTokenSchema, "body"), refreshAccessToken);
+
+// Protected endpoints
+router.post("/logout", validateRequest(logoutSchema, "body"), logout);
+router.get("/me", authMiddleware, getMe);
+router.put(
+  "/update",
+  authMiddleware,
+  upload.single("avatar"),
+  validateRequest(updateProfileSchema, "body"),
+  updateProfile
+);
 
 export default router;

@@ -1,23 +1,28 @@
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import aiRoutes from "./routes/ai.js";
 import taskRoutes from "./routes/taskRoutes.js";
-import fileRoutes from "./routes/fileRoutes.js";
 import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server } from "socket.io";
-import Meeting from "./models/Meeting.js";
+import { prisma } from "./config/prisma.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
 
 const app = express(); // ✅ FIRST create app
 
-// Middleware
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+
+const corsOptions = {
+  origin: FRONTEND_ORIGIN,
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rate limiter
@@ -32,14 +37,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/tasks", taskRoutes);
-app.use("/api/files", fileRoutes);
+
 
 // Create HTTP server
 const server = http.createServer(app);
 
 // Socket setup
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: FRONTEND_ORIGIN,
+    credentials: true,
+  },
 });
 
 // Store participants in memory: roomId -> map of socketId -> participant info
@@ -86,27 +94,40 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-message", async (msgPayload) => {
-    // msgPayload contains: roomId, message, userId, userName, meetingId
     const message = {
       id: Date.now().toString(),
       message: msgPayload.message,
       userId: msgPayload.userId,
       userName: msgPayload.userName,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     if (msgPayload.meetingId) {
       try {
-        await Meeting.findByIdAndUpdate(msgPayload.meetingId, {
-          $push: {
-            chatMessages: {
-              sender: msgPayload.userId,
-              senderName: msgPayload.userName,
-              message: msgPayload.message,
-              timestamp: message.timestamp,
-            },
-          },
+        const chatEntry = {
+          sender: msgPayload.userId,
+          senderName: msgPayload.userName,
+          message: msgPayload.message,
+          timestamp: message.timestamp,
+        };
+
+        const meeting = await prisma.meeting.findUnique({
+          where: { id: msgPayload.meetingId },
         });
+
+        if (meeting) {
+          const nextMessages = [
+            ...(Array.isArray(meeting.chatMessages)
+              ? meeting.chatMessages
+              : []),
+            chatEntry,
+          ];
+
+          await prisma.meeting.update({
+            where: { id: msgPayload.meetingId },
+            data: { chatMessages: nextMessages },
+          });
+        }
       } catch (error) {
         console.error("Failed to save chat message:", error.message);
       }
@@ -177,16 +198,13 @@ io.on("connection", (socket) => {
   });
 });
 
-// Connect DB + start server
+// Error handler middleware (must be last)
+app.use(errorHandler);
+
+// Start server with Prisma
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected ✅");
-
-    server.listen(PORT, () => {  // ✅ ONLY THIS
-      console.log(`Server running on port ${PORT}`);
-    });
-
-  })
-  .catch(err => console.log("DB Error:", err));
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`📊 Database: PostgreSQL (Neon)`);
+});
