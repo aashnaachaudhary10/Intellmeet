@@ -101,101 +101,22 @@ const parseMeetingSummaryResponse = (responseText) => {
   );
 };
 
-const transcribeAudioBlob = async (audioBlob, filename = "meeting-audio.webm") => {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OpenAI API key is not configured in .env");
-  }
-
-  const formData = new FormData();
-  formData.append("file", audioBlob, filename);
-  formData.append(
-    "model",
-    process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe"
-  );
-
-  const response = await fetch(
-    "https://api.openai.com/v1/audio/transcriptions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: formData,
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Audio transcription failed");
-  }
-
-  return data.text || "";
-};
-
-const transcribeRecordingParts = async (meeting) => {
-  const parts = [...(meeting.recordingParts || [])]
-    .filter((part) => part.url)
-    .sort((a, b) => (a.partNumber || 0) - (b.partNumber || 0));
-
-  if (parts.length === 0) return meeting.transcript || "";
-
-  const transcripts = [];
-
-  for (const part of parts) {
-    if (part.transcribed && part.transcript) {
-      transcripts.push(part.transcript);
-      continue;
-    }
-
-    const response = await fetch(part.url);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to download recording part ${part.partNumber || part.name}`
-      );
-    }
-
-    const audioBlob = await response.blob();
-    const text = await transcribeAudioBlob(
-      audioBlob,
-      part.name || `part-${part.partNumber}.webm`
-    );
-    part.transcript = text;
-    part.transcribed = true;
-    transcripts.push(text);
-  }
-
-  const transcript = transcripts.filter(Boolean).join("\n");
-  meeting.transcript = transcript;
-  await prisma.meeting.update({
-    where: { id: meeting.id },
-    data: { transcript },
-  });
-
-  return transcript;
-};
-
 export const summarizeText = async (req, res) => {
   try {
     const { text, transcript, meetingId } = req.body;
 
     const meeting = meetingId
       ? await prisma.meeting.findUnique({
-          where: { id: Number(meetingId) },
+          where: { id: meetingId },
         })
       : null;
 
-    const hasRecordingParts = Boolean(
-      meeting?.recordingParts?.some((part) => part.url)
-    );
-    const content = hasRecordingParts
-      ? await transcribeRecordingParts(meeting)
-      : text || transcript || meeting?.transcript;
+    const content = (text || transcript || meeting?.transcript || "").trim();
 
     if (!content) {
       return res
         .status(400)
-        .json({ message: "Text content is required for summarization" });
+        .json({ message: "Transcript text is required for summarization" });
     }
 
     if (!process.env.GEMINI_API_KEY) {
@@ -206,7 +127,7 @@ export const summarizeText = async (req, res) => {
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    let modelId = process.env.GENERATIVE_MODEL || null;
+    const modelId = process.env.GENERATIVE_MODEL || "gemini-1.5-flash";
 
     const model = genAI.getGenerativeModel({
       model: modelId,

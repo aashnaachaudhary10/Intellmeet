@@ -1,209 +1,53 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
+import rateLimit from "express-rate-limit";
+
 import authRoutes from "./routes/auth.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import aiRoutes from "./routes/ai.js";
 import taskRoutes from "./routes/taskRoutes.js";
-import rateLimit from "express-rate-limit";
-import http from "http";
-import { Server } from "socket.io";
-import { prisma } from "./config/prisma.js";
 import errorHandler from "./middleware/errorHandler.js";
+import { registerSocketHandlers } from "./sockets/socketHandler.js";
 
 dotenv.config();
 
-const app = express(); // ✅ FIRST create app
+const app = express();
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 
-const corsOptions = {
-  origin: FRONTEND_ORIGIN,
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
+app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json());
 
-// Rate limiter
+// Rate limiter on auth endpoints only
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: "Too many requests, try again later"
+  message: "Too many requests, try again later",
 });
-
 app.use("/api/auth", limiter);
+
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/tasks", taskRoutes);
 
-
-// Create HTTP server
+// HTTP + Socket.IO server
 const server = http.createServer(app);
 
-// Socket setup
 const io = new Server(server, {
-  cors: {
-    origin: FRONTEND_ORIGIN,
-    credentials: true,
-  },
+  cors: { origin: FRONTEND_ORIGIN, credentials: true },
 });
 
-// Store participants in memory: roomId -> map of socketId -> participant info
-const rooms = new Map();
+registerSocketHandlers(io);
 
-io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
-  socket.on("join-room", ({ roomId, userId, userName }) => {
-    socket.join(roomId);
-    socket.roomId = roomId;
-    socket.userId = userId;
-    socket.userName = userName;
-    
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, new Map());
-    }
-    const room = rooms.get(roomId);
-    
-    // Notify others in the room
-    socket.to(roomId).emit("user-joined", { socketId: socket.id, userId, userName });
-    
-    // Add current user to room state
-    room.set(socket.id, { socketId: socket.id, userId, userName, isMuted: false, isVideoOff: false });
-
-    // Send existing participants to the new user
-    const participants = Array.from(room.values()).filter(p => p.socketId !== socket.id);
-    socket.emit("room-participants", participants);
-    
-    console.log(`User ${userName} (${socket.id}) joined room ${roomId}`);
-  });
-
-  socket.on("webrtc-offer", ({ to, offer, from, fromName }) => {
-    io.to(to).emit("webrtc-offer", { offer, from, fromName });
-  });
-
-  socket.on("webrtc-answer", ({ to, answer }) => {
-    // Frontend sends answer without 'from', but it needs it on receive, so we inject socket.id
-    io.to(to).emit("webrtc-answer", { answer, from: socket.id });
-  });
-
-  socket.on("ice-candidate", ({ to, candidate }) => {
-    io.to(to).emit("ice-candidate", { candidate, from: socket.id });
-  });
-
-  socket.on("send-message", async (msgPayload) => {
-    const message = {
-      id: Date.now().toString(),
-      message: msgPayload.message,
-      userId: msgPayload.userId,
-      userName: msgPayload.userName,
-      timestamp: new Date().toISOString(),
-    };
-
-    if (msgPayload.meetingId) {
-      try {
-        const chatEntry = {
-          sender: msgPayload.userId,
-          senderName: msgPayload.userName,
-          message: msgPayload.message,
-          timestamp: message.timestamp,
-        };
-
-        const meeting = await prisma.meeting.findUnique({
-          where: { id: msgPayload.meetingId },
-        });
-
-        if (meeting) {
-          const nextMessages = [
-            ...(Array.isArray(meeting.chatMessages)
-              ? meeting.chatMessages
-              : []),
-            chatEntry,
-          ];
-
-          await prisma.meeting.update({
-            where: { id: msgPayload.meetingId },
-            data: { chatMessages: nextMessages },
-          });
-        }
-      } catch (error) {
-        console.error("Failed to save chat message:", error.message);
-      }
-    }
-
-    io.to(msgPayload.roomId).emit("receive-message", message);
-  });
-
-  socket.on("transcript-update", async ({ roomId, meetingId, text }) => {
-    if (meetingId && text) {
-      try {
-        const meeting = await Meeting.findById(meetingId);
-        if (meeting) {
-          meeting.transcript = `${meeting.transcript || ""}${text}\n`;
-          await meeting.save();
-        }
-      } catch (error) {
-        console.error("Failed to save transcript chunk:", error.message);
-      }
-    }
-
-    socket.to(roomId).emit("transcript-update", { text });
-  });
-
-  socket.on("typing-start", ({ roomId, userName }) => {
-    socket.to(roomId).emit("user-typing", { userName, isTyping: true });
-  });
-
-  socket.on("typing-stop", ({ roomId, userName }) => {
-    socket.to(roomId).emit("user-typing", { userName, isTyping: false });
-  });
-
-  socket.on("toggle-audio", ({ roomId, userId, isMuted }) => {
-    // Optionally update room state
-    if (rooms.has(roomId) && rooms.get(roomId).has(socket.id)) {
-      rooms.get(roomId).get(socket.id).isMuted = isMuted;
-    }
-    // Broadcast if needed, frontend might not have listener yet but good to have
-    socket.to(roomId).emit("user-toggled-audio", { socketId: socket.id, isMuted });
-  });
-
-  socket.on("toggle-video", ({ roomId, userId, isVideoOff }) => {
-    if (rooms.has(roomId) && rooms.get(roomId).has(socket.id)) {
-      rooms.get(roomId).get(socket.id).isVideoOff = isVideoOff;
-    }
-    socket.to(roomId).emit("user-toggled-video", { socketId: socket.id, isVideoOff });
-  });
-
-  socket.on("end-meeting", ({ roomId }) => {
-    io.to(roomId).emit("meeting-ended");
-    rooms.delete(roomId);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
-    const roomId = socket.roomId;
-    
-    if (roomId && rooms.has(roomId)) {
-      rooms.get(roomId).delete(socket.id);
-      
-      // Clean up empty rooms
-      if (rooms.get(roomId).size === 0) {
-        rooms.delete(roomId);
-      }
-      
-      socket.to(roomId).emit("user-left", { socketId: socket.id, userName: socket.userName });
-    }
-  });
-});
-
-// Error handler middleware (must be last)
+// Error handler (must be last)
 app.use(errorHandler);
 
-// Start server with Prisma
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📊 Database: PostgreSQL (Neon)`);

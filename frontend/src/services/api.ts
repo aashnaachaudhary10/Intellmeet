@@ -5,10 +5,10 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:50
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000
+  timeout: 10000,
 })
 
-// Request interceptor - add access token
+// Request interceptor — attach access token
 API.interceptors.request.use((config) => {
   const accessToken = useAuthStore.getState().accessToken
   if (accessToken) {
@@ -17,67 +17,48 @@ API.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor - handle token refresh and errors
+// Response interceptor — transparent token refresh on 401
 API.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config
 
-    // Skip refresh logic for auth endpoints themselves
-    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
-                           originalRequest.url?.includes('/auth/signup') ||
-                           originalRequest.url?.includes('/auth/logout')
+    const isAuthEndpoint =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/signup') ||
+      originalRequest.url?.includes('/auth/logout')
 
-    // If 401 and not already retrying, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
-
       try {
         const refreshToken = useAuthStore.getState().refreshToken
-        if (!refreshToken) {
-          throw new Error('No refresh token available')
-        }
+        if (!refreshToken) throw new Error('No refresh token available')
 
-        // Call refresh endpoint
         const response = await axios.post(
           `${API_BASE_URL}/auth/refresh`,
           { refreshToken },
           { timeout: 10000 }
         )
-
         const { accessToken: newAccessToken } = response.data.data
-
-        // Update store with new access token
         useAuthStore.getState().setAccessToken(newAccessToken)
-
-        // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return API(originalRequest)
       } catch (refreshError) {
-        // Refresh failed, clear auth and redirect
         useAuthStore.getState().clearAuth()
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
     }
 
-    // For other errors, just reject
     return Promise.reject(error)
   }
 )
 
-// ── Auth ──────────────────────────────────────────────
-export const signup = (data: { 
-  name: string
-  email: string
-  password: string 
-}) =>
+// ── Auth ──────────────────────────────────────────────────────────
+export const signup = (data: { name: string; email: string; password: string }) =>
   API.post('/auth/signup', data)
 
-export const login = (data: { 
-  email: string
-  password: string 
-}) =>
+export const login = (data: { email: string; password: string }) =>
   API.post('/auth/login', data)
 
 export const refreshAccessToken = (refreshToken: string) =>
@@ -88,42 +69,44 @@ export const logout = (refreshToken?: string) =>
 
 export const getMe = () => API.get('/auth/me')
 
-// ── Meetings ──────────────────────────────────────────
+// ── Meetings ──────────────────────────────────────────────────────
 export const getMeetings = () => API.get('/meetings/dashboard')
 export const getMeeting = (id: string) => API.get(`/meetings/${id}`)
 export const createMeeting = (data: { title: string; description?: string; scheduledTime?: string }) =>
   API.post('/meetings/create', data)
-export const joinMeetingByCode = (data: { meetingCode: string; userName: string }) => API.post(`/meetings/join`, data)
+export const joinMeetingByCode = (data: { meetingCode: string; userName: string }) =>
+  API.post('/meetings/join', data)
 export const startMeeting = (id: string) => API.patch(`/meetings/${id}/start`)
 export const endMeeting = (id: string) => API.patch(`/meetings/${id}/end`)
+// New: participant leaves without ending the meeting
+export const leaveMeeting = (id: string) => API.patch(`/meetings/${id}/leave`)
 export const saveTranscript = (id: string, transcript: string) =>
   API.patch(`/meetings/${id}/transcript`, { transcript })
 export const saveRecordingPart = (id: string, data: any) =>
   API.patch(`/meetings/${id}/recording-part`, data)
-export const saveSummary = (id: string, data: any) => API.patch(`/meetings/${id}/summary`, data)
+export const saveSummary = (id: string, data: any) =>
+  API.patch(`/meetings/${id}/summary`, data)
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
-// ── Tasks ─────────────────────────────────────────────
-export const getTasks = () => API.get('/tasks').then(r => r.data.tasks)
+// ── Tasks ─────────────────────────────────────────────────────────
+export const getTasks = () => API.get('/tasks').then((r) => r.data.tasks)
 export const createTask = (data: any) => API.post('/tasks', data)
 export const updateTaskStatus = (id: string, status: string) =>
   API.patch(`/tasks/${id}/status`, { status })
 export const updateTask = (id: string, data: any) => API.put(`/tasks/${id}`, data)
 export const deleteTask = (id: string) => API.delete(`/tasks/${id}`)
 
-// ── Users ─────────────────────────────────────────────
+// ── Users ─────────────────────────────────────────────────────────
 export const getUsers = () => API.get('/users')
 export const getProfile = () => API.get('/users/profile')
-export const updateProfile = (data: FormData | any) => {
-  return API.put('/auth/update', data)
-}
+export const updateProfile = (data: FormData | any) => API.put('/auth/update', data)
 
-// ── AI ────────────────────────────────────────────────
+// ── AI ────────────────────────────────────────────────────────────
 export const summarizeMeeting = (transcript: string, meetingId?: string) =>
   API.post('/ai/summarize', { transcript, meetingId })
 export const getAnalytics = () => API.get('/ai/analytics')
 
-// Docs / file management
+// ── Docs / file management ─────────────────────────────────────────
 export const DOCS_ROOT_PATH =
   import.meta.env.VITE_DOCS_ROOT || 'D:/Projects/aa/Intellmeet'
 
@@ -135,13 +118,13 @@ export type FileListItem = {
 
 export const getProjectDocs = () =>
   API.get<{ success: boolean; currentPath: string; files: FileListItem[] }>('/files', {
-    params: { path: DOCS_ROOT_PATH }
+    params: { path: DOCS_ROOT_PATH },
   })
 
 export const getDocContent = (filePath: string) =>
   API.get<string>('/files/stream', {
     params: { path: filePath },
-    responseType: 'text'
+    responseType: 'text',
   })
 
 export default API

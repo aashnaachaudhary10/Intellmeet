@@ -13,7 +13,7 @@ export default function MeetingDetail() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['meeting', id],
-    queryFn: () => getMeeting(id!).then(r => r.data.meeting)
+    queryFn: () => getMeeting(id!).then(r => r.data?.data?.meeting)
   })
 
   if (error) {
@@ -25,7 +25,7 @@ export default function MeetingDetail() {
   }
 
   const meeting = data
-  const canGenerateSummary = Boolean(meeting?.transcript?.trim() || meeting?.recordingParts?.length)
+  const canGenerateSummary = Boolean(meeting?.transcript?.trim())
 
   const generateSummaryMut = useMutation({
     mutationFn: () => summarizeMeeting(meeting?.transcript || '', id),
@@ -45,7 +45,7 @@ export default function MeetingDetail() {
 
   const handleGenerateSummary = () => {
     if (!canGenerateSummary) {
-      alert('No transcript or recording parts found for this meeting yet.')
+      alert('No transcript found for this meeting yet.')
       return
     }
 
@@ -92,7 +92,7 @@ export default function MeetingDetail() {
           </div>
           {meeting.status !== 'ended' && (
             <button
-              onClick={() => navigate(`/room/${meeting._id}`)}
+              onClick={() => navigate(`/room/${meeting.id}`)}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
             >
               <Video size={16} />
@@ -155,8 +155,8 @@ export default function MeetingDetail() {
               </div>
               <p className="text-slate-500 text-sm">
                 {canGenerateSummary
-                  ? 'No AI summary generated yet. Generate it now from the saved transcript or recording parts.'
-                  : 'No transcript or recording parts found yet.'}
+                  ? 'No AI summary generated yet. Generate it now from the saved transcript.'
+                  : 'No transcript found yet.'}
               </p>
             </div>
           )}
@@ -224,11 +224,11 @@ export default function MeetingDetail() {
                 </div>
               </div>
               {meeting.participants?.map((p: any, index: number) => (
-                <div key={p._id || p.user?._id || p.name || p || index} className="flex items-center gap-3">
+                <div key={p.userId || p.id || p.name || p.userName || index} className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                    {(p.name || p.user?.name || p)?.[0]?.toUpperCase()}
+                    {(p.userName || p.name || p.user?.name || p)?.[0]?.toUpperCase()}
                   </div>
-                  <p className="text-sm text-slate-300">{p.name || p.user?.name || p}</p>
+                  <p className="text-sm text-slate-300">{p.userName || p.name || p.user?.name || p}</p>
                 </div>
               ))}
             </div>
