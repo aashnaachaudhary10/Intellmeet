@@ -24,7 +24,6 @@ type Task = {
   status: string
   priority: string
   assigneeName: string
-  user?: { id?: string; name?: string; email?: string }
 }
 
 export default function KanbanBoard() {
@@ -67,9 +66,7 @@ export default function KanbanBoard() {
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateTaskStatus(id, status),
-    onMutate: () => {
-      setIsTransferring(true)
-    },
+    onMutate: () => setIsTransferring(true),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] })
       qc.invalidateQueries({ queryKey: ['analytics'] })
@@ -81,13 +78,10 @@ export default function KanbanBoard() {
       toast({
         title: 'Error',
         description: err?.response?.data?.message || 'Failed to update task status',
-        variant: 'destructive'
+        variant: 'destructive',
       })
       setPendingMove(null)
       setIsTransferring(false)
-    }
-  })
-      setPendingMove(null)
     },
   })
 
@@ -116,17 +110,16 @@ export default function KanbanBoard() {
 
   const handleDrop = (e: React.DragEvent, colId: string) => {
     e.preventDefault()
-    if (dragging) {
-      const task = tasks.find((t) => t._id === dragging)
-      if (!task) {
-        setDragging(null)
-        return
-      }
-      if (task.status !== colId) {
-        setPendingMove({ taskId: dragging, status: colId })
-      }
+    if (!dragging) return
+    const task = tasks.find((t) => t._id === dragging)
+    if (!task) {
       setDragging(null)
+      return
     }
+    if (task.status !== colId) {
+      setPendingMove({ taskId: dragging, status: colId })
+    }
+    setDragging(null)
   }
 
   const handleQuickMove = (taskId: string, status: string) => {
@@ -134,9 +127,8 @@ export default function KanbanBoard() {
   }
 
   const confirmMove = () => {
-    if (pendingMove) {
-      statusMut.mutate({ id: pendingMove.taskId, status: pendingMove.status })
-    }
+    if (!pendingMove) return
+    statusMut.mutate({ id: pendingMove.taskId, status: pendingMove.status })
   }
 
   const PriorityBadge = ({ priority }: { priority: string }) => {

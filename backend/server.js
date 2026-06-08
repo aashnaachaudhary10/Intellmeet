@@ -5,10 +5,7 @@ import http from "http";
 import { Server } from "socket.io";
 import rateLimit from "express-rate-limit";
 
-import authRoutes from "./routes/auth.js";
-import meetingRoutes from "./routes/meetingRoutes.js";
-import aiRoutes from "./routes/ai.js";
-import taskRoutes from "./routes/taskRoutes.js";
+import router from "./routes/index.js";
 import errorHandler from "./middleware/errorHandler.js";
 import { registerSocketHandlers } from "./sockets/socketHandler.js";
 
@@ -30,10 +27,7 @@ const limiter = rateLimit({
 app.use("/api/auth", limiter);
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/meetings", meetingRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/tasks", taskRoutes);
+app.use("/api", router);
 
 // HTTP + Socket.IO server
 const server = http.createServer(app);

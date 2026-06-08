@@ -26,7 +26,7 @@ import {
   MessageSquare, PhoneOff, Bot, Copy, Users, Loader2, Send, X,
 } from 'lucide-react'
 
-// ── Types ──────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 interface Participant {
   socketId: string
   userId: string
@@ -50,7 +50,7 @@ interface ChatMsg {
 // 2 hours in seconds
 const MEETING_LIMIT_SECONDS = 7200
 
-// ── Black-frame track helper ───────────────────────────────────────
+// ΓöÇΓöÇ Black-frame track helper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Used to replace the camera track when video is toggled off,
 // so the camera hardware is released (no OS indicator light).
 function createBlackTrack(): MediaStreamTrack {
@@ -66,8 +66,8 @@ function createBlackTrack(): MediaStreamTrack {
   return track
 }
 
-// ── Component ──────────────────────────────────────────────────────
-// ── VideoTile — defined outside MeetingRoom so React never remounts it ──
+// ΓöÇΓöÇ Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ΓöÇΓöÇ VideoTile ΓÇö defined outside MeetingRoom so React never remounts it ΓöÇΓöÇ
 // Defining a component inside another component causes it to be treated as
 // a new type on every render, which unmounts/remounts the video element and
 // kills the MediaStream. It must live at module level.
@@ -102,7 +102,7 @@ function VideoTile({
       )}
       <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
         {participant.isMuted && <MicOff size={10} className="text-red-400" />}
-        {participant.userName} {isLocal ? '(You)' : ''} {showScreen ? '🖥️ Screen' : ''}
+        {participant.userName} {isLocal ? '(You)' : ''} {showScreen ? '≡ƒûÑ∩╕Å Screen' : ''}
       </div>
     </div>
   )
@@ -157,14 +157,14 @@ export default function MeetingRoom() {
 
   const roomId = id!
 
-  // ── Sync local stream to video element after loading ───────────────
+  // ΓöÇΓöÇ Sync local stream to video element after loading ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (!loading && localVideoRef.current && localStreamRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current
     }
   }, [loading])
 
-  // ── Assign screen stream to video element when isSharing toggles ───
+  // ΓöÇΓöÇ Assign screen stream to video element when isSharing toggles ΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (isSharing && screenVideoRef.current && screenStreamRef.current) {
       screenVideoRef.current.srcObject = screenStreamRef.current
@@ -174,7 +174,7 @@ export default function MeetingRoom() {
     }
   }, [isSharing])
 
-  // ── Init meeting & media ───────────────────────────────────────────
+  // ΓöÇΓöÇ Init meeting & media ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     let mounted = true
 
@@ -232,7 +232,7 @@ export default function MeetingRoom() {
     return () => { mounted = false }
   }, [id])
 
-  // ── Setup local media ──────────────────────────────────────────────
+  // ΓöÇΓöÇ Setup local media ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const setupMedia = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -247,7 +247,7 @@ export default function MeetingRoom() {
     } catch (err) {
       console.warn('Camera/mic not available, joining without media')
     }
-    // Join the room after media is ready (or after failure — join anyway)
+    // Join the room after media is ready (or after failure ΓÇö join anyway)
     socket.emit('join-room', { roomId, userId: user?.id, userName: user?.name })
   }
 
@@ -274,7 +274,7 @@ export default function MeetingRoom() {
     } catch {}
   }, [isMuted, meeting?.status])
 
-  // ── beforeunload: emit leave so the server cleans up the participant ─
+  // ΓöÇΓöÇ beforeunload: emit leave so the server cleans up the participant ΓöÇ
   useEffect(() => {
     const handleUnload = () => {
       stopTranscription()
@@ -287,7 +287,7 @@ export default function MeetingRoom() {
     return () => window.removeEventListener('beforeunload', handleUnload)
   }, [id, roomId, socket, stopTranscription])
 
-  // ── Renegotiate with a specific peer after track changes ───────────
+  // ΓöÇΓöÇ Renegotiate with a specific peer after track changes ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const renegotiate = useCallback(
     async (targetSocketId: string) => {
       const pc = peersRef.current.get(targetSocketId)
@@ -308,9 +308,9 @@ export default function MeetingRoom() {
     [socket, user]
   )
 
-  // ── WebRTC peer creation ───────────────────────────────────────────
+  // ΓöÇΓöÇ WebRTC peer creation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   // Uses only refs (never state) in deps so this function is stable for
-  // the lifetime of the component — recreating it would orphan existing
+  // the lifetime of the component ΓÇö recreating it would orphan existing
   // RTCPeerConnection objects and break media mid-call.
   const createPeer = useCallback(
     (targetSocketId: string) => {
@@ -373,7 +373,7 @@ export default function MeetingRoom() {
     [socket, user]  // stable: only socket instance and user identity
   )
 
-  // ── Socket events ──────────────────────────────────────────────────
+  // ΓöÇΓöÇ Socket events ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     const onRoomParticipants = async (list: Participant[]) => {
       for (const p of list) {
@@ -463,7 +463,7 @@ export default function MeetingRoom() {
       setTranscript((prev) => prev + text + '\n')
     }
 
-    // Screen share signals from server — set a flag so ontrack routes correctly
+    // Screen share signals from server ΓÇö set a flag so ontrack routes correctly
     const onPeerScreenShareStart = ({ socketId }: any) => {
       setParticipants((prev) => {
         const next = new Map(prev)
@@ -534,7 +534,7 @@ export default function MeetingRoom() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, navigate])  // stable: createPeer is memoized on socket+user only
 
-  // ── Speech recognition for live transcript ─────────────────────────
+  // ΓöÇΓöÇ Speech recognition for live transcript ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -581,7 +581,7 @@ export default function MeetingRoom() {
     }
   }, [loading, meeting?.status, isMuted, startTranscription, stopTranscription])
 
-  // ── Debounced transcript save — host only ──────────────────────────
+  // ΓöÇΓöÇ Debounced transcript save ΓÇö host only ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     // Only the host writes the transcript to the DB to avoid races
     if (!id || !transcript.trim() || !isHostRef.current) return
@@ -595,12 +595,12 @@ export default function MeetingRoom() {
     return () => clearTimeout(timer)
   }, [id, transcript])
 
-  // ── Auto-scroll chat ───────────────────────────────────────────────
+  // ΓöÇΓöÇ Auto-scroll chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Controls ───────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Controls ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const toggleMute = () => {
     const stream = localStreamRef.current
     if (!stream) return
@@ -624,7 +624,7 @@ export default function MeetingRoom() {
     socket.emit('toggle-video', { roomId, isVideoOff: nextVideoOff })
 
     if (nextVideoOff) {
-      // Replace camera track with a black frame — releases the hardware
+      // Replace camera track with a black frame ΓÇö releases the hardware
       const currentVideoTrack = stream.getVideoTracks()[0]
       if (currentVideoTrack) {
         // Replace in every peer sender first, then stop
@@ -661,7 +661,7 @@ export default function MeetingRoom() {
 
   const toggleScreen = useCallback(async () => {
     if (isSharing) {
-      // ── Stop sharing ─────────────────────────────────────────────
+      // ΓöÇΓöÇ Stop sharing ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       screenStreamRef.current?.getTracks().forEach((t) => t.stop())
       screenStreamRef.current = null
       setIsSharing(false)
@@ -681,7 +681,7 @@ export default function MeetingRoom() {
         }
       }
     } else {
-      // ── Start sharing ────────────────────────────────────────────
+      // ΓöÇΓöÇ Start sharing ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       try {
         const screen = await navigator.mediaDevices.getDisplayMedia({ video: true })
         const screenTrack = screen.getVideoTracks()[0]
@@ -708,7 +708,7 @@ export default function MeetingRoom() {
     }
   }, [isSharing, renegotiate, roomId, socket])
 
-  // ── Chat ───────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const sendMessage = () => {
     if (!msgInput.trim()) return
     socket.emit('send-message', {
@@ -732,7 +732,7 @@ export default function MeetingRoom() {
     )
   }
 
-  // ── AI Summary ─────────────────────────────────────────────────────
+  // ΓöÇΓöÇ AI Summary ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const generateAISummary = async () => {
     if (!transcript && !meeting?.transcript) {
       toast({ title: 'Notice', description: 'No transcript available yet. Speak in the meeting to generate one.' })
@@ -755,7 +755,7 @@ export default function MeetingRoom() {
     }
   }
 
-  // ── Cleanup: stop all media & close all peers ──────────────────────
+  // ΓöÇΓöÇ Cleanup: stop all media & close all peers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const cleanup = useCallback(() => {
     stopTranscription()
     if (localVideoRef.current) localVideoRef.current.srcObject = null
@@ -781,7 +781,7 @@ export default function MeetingRoom() {
     }
   }, [cleanup, roomId, socket])
 
-  // ── Leave / End ────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Leave / End ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const leaveMeeting = useCallback(
     async (endForEveryone = false) => {
       if (endingRef.current) return
@@ -819,7 +819,7 @@ export default function MeetingRoom() {
     }
   }
 
-  // ── Meeting time limit countdown ───────────────────────────────────
+  // ΓöÇΓöÇ Meeting time limit countdown ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (loading) return
     if (meeting?.status !== 'active') {
@@ -856,7 +856,7 @@ export default function MeetingRoom() {
 
 
 
-  // ── Loading state ──────────────────────────────────────────────────
+  // ΓöÇΓöÇ Loading state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   if (loading) {
     return (
       <div className="h-screen bg-slate-950 flex items-center justify-center">
@@ -868,7 +868,7 @@ export default function MeetingRoom() {
     )
   }
 
-  // ── Derived display values ─────────────────────────────────────────
+  // ΓöÇΓöÇ Derived display values ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const participantsList = Array.from(participants.values())
   const remoteTiles = participantsList.reduce((count, p) => {
     if (p.stream && p.screenStream) return count + 2
@@ -880,7 +880,7 @@ export default function MeetingRoom() {
   const showCountdown = remainingSeconds <= 600
   const remainingLabel = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`
 
-  // ── Render ─────────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   return (
     <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
       {/* Top bar */}
@@ -903,7 +903,7 @@ export default function MeetingRoom() {
             </span>
             {showCountdown && (
               <span className={`text-xs font-medium ${remainingSeconds <= 60 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
-                ⏱ {remainingLabel} left
+                ΓÅ▒ {remainingLabel} left
               </span>
             )}
           </div>
@@ -952,7 +952,7 @@ export default function MeetingRoom() {
               )}
               <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
                 {isMuted && <MicOff size={10} className="text-red-400" />}
-                {user?.name} (You) 📹
+                {user?.name} (You) ≡ƒô╣
               </div>
             </div>
 
@@ -967,7 +967,7 @@ export default function MeetingRoom() {
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
-                  {user?.name} (You) 🖥️ Screen
+                  {user?.name} (You) ≡ƒûÑ∩╕Å Screen
                 </div>
               </div>
             )}

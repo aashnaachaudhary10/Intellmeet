@@ -8,7 +8,7 @@ const API = axios.create({
   timeout: 60000,
 })
 
-// Request interceptor — attach access token
+// Request interceptor â€” attach access token
 API.interceptors.request.use((config) => {
   const accessToken = useAuthStore.getState().accessToken
   if (accessToken) {
@@ -17,7 +17,7 @@ API.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor — transparent token refresh on 401
+// Response interceptor â€” transparent token refresh on 401
 API.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -26,7 +26,8 @@ API.interceptors.response.use(
     const isAuthEndpoint =
       originalRequest.url?.includes('/auth/login') ||
       originalRequest.url?.includes('/auth/signup') ||
-      originalRequest.url?.includes('/auth/logout')
+      originalRequest.url?.includes('/auth/logout') ||
+      originalRequest.url?.includes('/auth/refresh')
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
@@ -54,7 +55,7 @@ API.interceptors.response.use(
   }
 )
 
-// ── Auth ──────────────────────────────────────────────────────────
+// Auth
 export const signup = (data: { name: string; email: string; password: string }) =>
   API.post('/auth/signup', data)
 
@@ -69,7 +70,7 @@ export const logout = (refreshToken?: string) =>
 
 export const getMe = () => API.get('/auth/me')
 
-// ── Meetings ──────────────────────────────────────────────────────
+// Meetings
 export const getMeetings = () => API.get('/meetings/dashboard')
 export const getMeeting = (id: string) => API.get(`/meetings/${id}`)
 export const createMeeting = (data: { title: string; description?: string; scheduledTime?: string }) =>
@@ -78,7 +79,6 @@ export const joinMeetingByCode = (data: { meetingCode: string; userName: string 
   API.post('/meetings/join', data)
 export const startMeeting = (id: string) => API.patch(`/meetings/${id}/start`)
 export const endMeeting = (id: string) => API.patch(`/meetings/${id}/end`)
-// New: participant leaves without ending the meeting
 export const leaveMeeting = (id: string) => API.patch(`/meetings/${id}/leave`)
 export const saveTranscript = (id: string, transcript: string) =>
   API.patch(`/meetings/${id}/transcript`, { transcript })
@@ -88,7 +88,7 @@ export const saveSummary = (id: string, data: any) =>
   API.patch(`/meetings/${id}/summary`, data)
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
-// ── Tasks ─────────────────────────────────────────────────────────
+// Tasks
 export const getTasks = () => API.get('/tasks').then((r) => r.data.data.tasks)
 export const createTask = (data: any) => API.post('/tasks', data)
 export const updateTaskStatus = (id: string, status: string) =>
@@ -96,17 +96,20 @@ export const updateTaskStatus = (id: string, status: string) =>
 export const updateTask = (id: string, data: any) => API.put(`/tasks/${id}`, data)
 export const deleteTask = (id: string) => API.delete(`/tasks/${id}`)
 
-// ── Users ─────────────────────────────────────────────────────────
+// Users
 export const getUsers = () => API.get('/users')
 export const getProfile = () => API.get('/users/profile')
 export const updateProfile = (data: FormData | any) => API.put('/auth/update', data)
 
-// ── AI ────────────────────────────────────────────────────────────
+// AI
 export const summarizeMeeting = (transcript: string, meetingId?: string) =>
   API.post('/ai/summarize', { transcript, meetingId })
 export const getAnalytics = () => API.get('/ai/analytics')
 
-// ── Docs / file management ─────────────────────────────────────────
+// Health
+export const healthCheck = () => API.get('/health')
+
+// Docs / file management
 export const DOCS_ROOT_PATH =
   import.meta.env.VITE_DOCS_ROOT || 'D:/Projects/aa/Intellmeet'
 

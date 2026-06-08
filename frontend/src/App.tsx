@@ -22,19 +22,22 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Docs from "./pages/Docs";
 import Layout from "@/components/Layout";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, initialized } = useAuthStore();
 
+  if (!initialized) return <div className="p-8 flex items-center justify-center h-screen"><Loader2 className="animate-spin text-blue-500" size={32} /></div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, initialized } = useAuthStore();
 
+  if (!initialized) return <div className="p-8 flex items-center justify-center h-screen"><Loader2 className="animate-spin text-blue-500" size={32} /></div>;
   if (isAuthenticated) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }

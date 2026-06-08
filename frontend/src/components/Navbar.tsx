@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { Video, Menu, X } from "lucide-react";
+import { Video, Menu, X, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate(); // Navigation hook
+  const navigate = useNavigate();
 
   const links = [
     { name: "Home", path: "/" },
     { name: "About Us", path: "/about" },
     { name: "Contact Us", path: "/contact" },
+    { name: "GitHub", path: "https://github.com/aashnaachaudhary10/Intellmeet", external: true },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -28,15 +29,28 @@ const Navbar = () => {
 
         <div className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
-            <Link
-              key={l.name}
-              to={l.path}
-              className={`text-sm font-medium transition-colors hover:text-foreground ${
-                isActive(l.path) ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              {l.name}
-            </Link>
+            l.external ? (
+              <a
+                key={l.name}
+                href={l.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm font-medium transition-colors hover:text-foreground text-muted-foreground"
+              >
+                <Github size={16} />
+                {l.name}
+              </a>
+            ) : (
+              <Link
+                key={l.name}
+                to={l.path}
+                className={`text-sm font-medium transition-colors hover:text-foreground ${
+                  isActive(l.path) ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {l.name}
+              </Link>
+            )
           ))}
         </div>
 
