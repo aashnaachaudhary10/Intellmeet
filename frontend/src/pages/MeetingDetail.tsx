@@ -164,21 +164,21 @@ export default function MeetingDetail() {
           {/* Action Items */}
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="font-semibold text-white mb-4">
-              Action Items ({meeting.actionItems?.length || 0})
+              Action Items ({meeting.tasks?.length || 0})
             </h2>
-            {meeting.actionItems?.length > 0 ? (
+            {meeting.tasks?.length > 0 ? (
               <div className="space-y-3">
-                {meeting.actionItems.map((item: any, i: number) => (
-                  <div key={i} className="flex items-start gap-3 rounded-lg bg-slate-800 p-3">
-                    {item.completed
+                {meeting.tasks.map((item: any, i: number) => (
+                  <div key={item.id || i} className="flex items-start gap-3 rounded-lg bg-slate-800 p-3">
+                    {item.status === 'done'
                       ? <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
                       : <Circle size={18} className="text-slate-500 mt-0.5 shrink-0" />
                     }
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${item.completed ? 'line-through text-slate-500' : 'text-white'}`}>
-                        {item.task}
+                      <p className={`text-sm font-medium ${item.status === 'done' ? 'line-through text-slate-500' : 'text-white'}`}>
+                        {item.title}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">Assigned to {item.assignee}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Assigned to {item.assigneeName || 'Unassigned'}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
                       item.priority === 'high' ? 'bg-red-900/40 text-red-400' :

@@ -242,7 +242,15 @@ export const getMeetingById = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id },
-      include: { host: { select: HOST_SELECT } },
+      include: {
+        host: { select: HOST_SELECT },
+        tasks: {
+          include: {
+            user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
     });
     if (!meeting) return sendError(res, 404, "Meeting not found");
     return sendSuccess(res, 200, "Meeting fetched", { meeting });

@@ -179,12 +179,39 @@ export const summarizeText = async (req, res) => {
     const responseText = result.response.text();
     console.log("Raw AI Response:", responseText);
     const parsedData = parseMeetingSummaryResponse(responseText);
+    const actionItems = normalizeActionItems(parsedData.actionItems);
+
+    const createdTasks = [];
+    if (meeting && actionItems.length > 0) {
+      for (const item of actionItems) {
+        try {
+          const task = await prisma.task.create({
+            data: {
+              title: item.task,
+              description: item.task,
+              status: "todo",
+              userId: req.user.id,
+              meetingId: meeting.id,
+              assigneeName: item.assignee,
+              priority: item.priority,
+            },
+            include: {
+              user: { select: { id: true, name: true, email: true, avatar: true, role: true } },
+            },
+          });
+          createdTasks.push(task);
+        } catch (taskErr) {
+          console.error("Failed to create task from action item:", taskErr);
+        }
+      }
+    }
+
     const payload = {
       summary: parsedData.summary || "No summary generated.",
       keyPoints: Array.isArray(parsedData.keyPoints)
         ? parsedData.keyPoints
         : [],
-      actionItems: normalizeActionItems(parsedData.actionItems),
+      actionItems,
     };
 
     if (meeting) {
@@ -199,7 +226,10 @@ export const summarizeText = async (req, res) => {
       });
     }
 
-    res.status(200).json(payload);
+    res.status(200).json({
+      ...payload,
+      createdTasks,
+    });
   } catch (error) {
     console.error("AI Summarization Error:", error);
     res.status(500).json({
@@ -213,6 +243,9 @@ export const getAnalytics = async (req, res) => {
   try {
     const meetings = await prisma.meeting.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        tasks: true,
+      },
     });
 
     const totalMeetings = meetings.length;
@@ -220,11 +253,11 @@ export const getAnalytics = async (req, res) => {
       (sum, meeting) => sum + (meeting.duration || 0),
       0
     );
-    const allActionItems = meetings.flatMap(
-      (meeting) => meeting.actionItems || []
-    );
-    const completedActionItems = allActionItems.filter(
-      (item) => item.completed
+
+    const allTasks = meetings.flatMap((meeting) => meeting.tasks || []);
+    const totalActionItems = allTasks.length;
+    const completedActionItems = allTasks.filter(
+      (task) => task.status === "done"
     ).length;
 
     const weekLabels = [];
@@ -254,11 +287,11 @@ export const getAnalytics = async (req, res) => {
       avgDuration: totalMeetings
         ? Math.round(totalDuration / totalMeetings)
         : 0,
-      totalActionItems: allActionItems.length,
+      totalActionItems,
       completedActionItems,
-      completionRate: allActionItems.length
+      completionRate: totalActionItems
         ? Math.round(
-            (completedActionItems / allActionItems.length) * 100
+            (completedActionItems / totalActionItems) * 100
           )
         : 0,
       weeklyData,

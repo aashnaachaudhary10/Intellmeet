@@ -5,7 +5,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:50
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
 })
 
 // Request interceptor — attach access token
@@ -89,7 +89,7 @@ export const saveSummary = (id: string, data: any) =>
 export const deleteMeeting = (id: string) => API.delete(`/meetings/delete/${id}`)
 
 // ── Tasks ─────────────────────────────────────────────────────────
-export const getTasks = () => API.get('/tasks').then((r) => r.data.tasks)
+export const getTasks = () => API.get('/tasks').then((r) => r.data.data.tasks)
 export const createTask = (data: any) => API.post('/tasks', data)
 export const updateTaskStatus = (id: string, status: string) =>
   API.patch(`/tasks/${id}/status`, { status })

@@ -1,12 +1,20 @@
 import { prisma } from "../config/prisma.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 
+const SAFE_USER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  avatar: true,
+  role: true,
+};
+
 export const getTasks = async (req, res) => {
   try {
     const tasks = await prisma.task.findMany({
       where: { userId: req.user.id },
       include: {
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -19,7 +27,7 @@ export const getTasks = async (req, res) => {
 
 export const createTask = async (req, res) => {
   try {
-    const { title, description, status, meetingId } = req.body;
+    const { title, description, status, meetingId, assigneeName, priority } = req.body;
 
     if (!title) {
       return sendError(res, 400, "Please provide a task title");
@@ -32,9 +40,11 @@ export const createTask = async (req, res) => {
         status: status || "todo",
         userId: req.user.id,
         meetingId: meetingId || undefined,
+        assigneeName: assigneeName || "Unassigned",
+        priority: priority || "medium",
       },
       include: {
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
 
@@ -64,7 +74,7 @@ export const updateTask = async (req, res) => {
         ...(status ? { status } : {}),
       },
       include: {
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
 
@@ -94,7 +104,7 @@ export const updateTaskStatus = async (req, res) => {
       where: { id: req.params.id },
       data: { status },
       include: {
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
 

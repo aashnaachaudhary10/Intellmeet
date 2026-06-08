@@ -63,18 +63,22 @@ export const joinMeetingSchema = z.object({
 export const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title must be less than 255 characters"),
   description: z.string().max(2000, "Description must be less than 2000 characters").optional(),
-  status: z.enum(["todo", "in-progress", "done"]).optional(),
+  status: z.enum(["todo", "inprogress", "done"]).optional(),
   meetingId: z.string().optional(),
+  assigneeName: z.string().max(255).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
 });
 
 export const updateTaskSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title must be less than 255 characters").optional(),
   description: z.string().max(2000, "Description must be less than 2000 characters").optional(),
-  status: z.enum(["todo", "in-progress", "done"]).optional(),
+  status: z.enum(["todo", "inprogress", "done"]).optional(),
+  assigneeName: z.string().max(255).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
 });
 
 export const updateTaskStatusSchema = z.object({
-  status: z.enum(["todo", "in-progress", "done"], {
-    errorMap: () => ({ message: "Status must be todo, in-progress, or done" })
+  status: z.enum(["todo", "inprogress", "done"], {
+    errorMap: () => ({ message: "Status must be todo, inprogress, or done" })
   }),
 });
