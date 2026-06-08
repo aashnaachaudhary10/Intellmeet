@@ -86,6 +86,7 @@ function VideoTile({
   useEffect(() => {
     if (ref.current && stream) {
       ref.current.srcObject = stream
+      ref.current.play().catch(() => {})
     }
   }, [stream])
 
@@ -150,6 +151,7 @@ export default function MeetingRoom() {
   const recordingPartRef = useRef(0)
   const endingRef = useRef(false)
   const limitStartedAtRef = useRef<number | null>(null)
+  const shouldTranscribeRef = useRef(false)
   // Whether the current user is the host (set after meeting loads)
   const isHostRef = useRef(false)
 
@@ -230,18 +232,6 @@ export default function MeetingRoom() {
     return () => { mounted = false }
   }, [id])
 
-  // ── beforeunload: emit leave so the server cleans up the participant ─
-  useEffect(() => {
-    const handleUnload = () => {
-      socket.emit('leave-room', { roomId })
-      if (!endingRef.current) {
-        leaveMeetingAPI(id!).catch(() => {})
-      }
-    }
-    window.addEventListener('beforeunload', handleUnload)
-    return () => window.removeEventListener('beforeunload', handleUnload)
-  }, [id, roomId, socket])
-
   // ── Setup local media ──────────────────────────────────────────────
   const setupMedia = async () => {
     try {
@@ -260,6 +250,42 @@ export default function MeetingRoom() {
     // Join the room after media is ready (or after failure — join anyway)
     socket.emit('join-room', { roomId, userId: user?.id, userName: user?.name })
   }
+
+  const stopTranscription = useCallback(() => {
+    shouldTranscribeRef.current = false
+    try {
+      recognitionRef.current?.stop()
+    } catch {}
+  }, [])
+
+  const startTranscription = useCallback(() => {
+    const hasLiveAudioTrack = Boolean(
+      localStreamRef.current?.getAudioTracks().some((track) => track.enabled && track.readyState === 'live')
+    )
+
+    if (!recognitionRef.current || meeting?.status !== 'active' || isMuted || !hasLiveAudioTrack) {
+      shouldTranscribeRef.current = false
+      return
+    }
+
+    shouldTranscribeRef.current = true
+    try {
+      recognitionRef.current.start()
+    } catch {}
+  }, [isMuted, meeting?.status])
+
+  // ── beforeunload: emit leave so the server cleans up the participant ─
+  useEffect(() => {
+    const handleUnload = () => {
+      stopTranscription()
+      socket.emit('leave-room', { roomId })
+      if (!endingRef.current) {
+        leaveMeetingAPI(id!).catch(() => {})
+      }
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [id, roomId, socket, stopTranscription])
 
   // ── Renegotiate with a specific peer after track changes ───────────
   const renegotiate = useCallback(
@@ -319,25 +345,6 @@ export default function MeetingRoom() {
         }
       }
 
-      // onnegotiationneeded fires when tracks are added AFTER the peer is created.
-      // Guard: only send an offer if we are already the initiator (have local desc set).
-      pc.onnegotiationneeded = async () => {
-        try {
-          // Avoid re-entrant renegotiation
-          if (pc.signalingState !== 'stable') return
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          socket.emit('webrtc-offer', {
-            to: targetSocketId,
-            offer,
-            from: socket.id,
-            fromName: user?.name,
-          })
-        } catch (err) {
-          console.warn('onnegotiationneeded error for', targetSocketId, err)
-        }
-      }
-
       pc.ontrack = (e) => {
         const stream = e.streams[0]
         if (!stream) return
@@ -377,12 +384,7 @@ export default function MeetingRoom() {
           next.set(p.socketId, p)
           return next
         })
-        if (!peersRef.current.has(p.socketId)) {
-          const pc = createPeer(p.socketId)
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          socket.emit('webrtc-offer', { to: p.socketId, offer, from: socket.id, fromName: user?.name })
-        }
+        if (!peersRef.current.has(p.socketId)) createPeer(p.socketId)
       }
     }
 
@@ -544,6 +546,8 @@ export default function MeetingRoom() {
     recognitionRef.current = recognition
 
     recognition.onresult = (event: any) => {
+      if (!shouldTranscribeRef.current) return
+
       let final = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) final += event.results[i][0].transcript + ' '
@@ -556,15 +560,26 @@ export default function MeetingRoom() {
     }
 
     recognition.onend = () => {
+      if (!shouldTranscribeRef.current) return
       try { recognition.start() } catch {}
     }
 
-    recognition.start()
     return () => {
+      shouldTranscribeRef.current = false
       recognition.onend = null
       recognition.stop()
     }
   }, [])
+
+  useEffect(() => {
+    if (loading) return
+
+    if (meeting?.status === 'active' && !isMuted) {
+      startTranscription()
+    } else {
+      stopTranscription()
+    }
+  }, [loading, meeting?.status, isMuted, startTranscription, stopTranscription])
 
   // ── Debounced transcript save — host only ──────────────────────────
   useEffect(() => {
@@ -594,9 +609,9 @@ export default function MeetingRoom() {
     setIsMuted(nextMuted)
     socket.emit('toggle-audio', { roomId, isMuted: nextMuted })
     if (nextMuted) {
-      recognitionRef.current?.stop()
+      stopTranscription()
     } else {
-      try { recognitionRef.current?.start() } catch {}
+      startTranscription()
     }
   }
 
@@ -654,7 +669,7 @@ export default function MeetingRoom() {
 
       // Swap back to camera track in all peer senders
       const cameraTrack = localStreamRef.current?.getVideoTracks()[0]
-      for (const [, pc] of peersRef.current) {
+      for (const [socketId, pc] of peersRef.current) {
         const sender = pc.getSenders().find((s) => s.track?.contentHint === 'detail')
         if (sender) {
           if (cameraTrack) {
@@ -662,6 +677,7 @@ export default function MeetingRoom() {
           } else {
             pc.removeTrack(sender)
           }
+          await renegotiate(socketId)
         }
       }
     } else {
@@ -677,8 +693,9 @@ export default function MeetingRoom() {
         setIsSharing(true)
 
         // Add screen track to each peer; onnegotiationneeded handles the offer
-        for (const [, pc] of peersRef.current) {
+        for (const [socketId, pc] of peersRef.current) {
           pc.addTrack(screenTrack, screen)
+          await renegotiate(socketId)
         }
 
         // Handle user stopping share via the browser's built-in "Stop sharing" button
@@ -689,7 +706,7 @@ export default function MeetingRoom() {
         console.warn('Screen sharing cancelled or failed', err)
       }
     }
-  }, [isSharing, roomId, socket])
+  }, [isSharing, renegotiate, roomId, socket])
 
   // ── Chat ───────────────────────────────────────────────────────────
   const sendMessage = () => {
@@ -740,6 +757,7 @@ export default function MeetingRoom() {
 
   // ── Cleanup: stop all media & close all peers ──────────────────────
   const cleanup = useCallback(() => {
+    stopTranscription()
     if (localVideoRef.current) localVideoRef.current.srcObject = null
     if (screenVideoRef.current) screenVideoRef.current.srcObject = null
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
@@ -750,11 +768,18 @@ export default function MeetingRoom() {
     blackTrackRef.current = null
     peersRef.current.forEach((pc) => pc.close())
     peersRef.current.clear()
-    recognitionRef.current?.stop()
+    recognitionRef.current = null
     aiRecorderActiveRef.current = false
     clearTimeout(aiRecorderTimerRef.current)
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
-  }, [])
+  }, [stopTranscription])
+
+  useEffect(() => {
+    return () => {
+      cleanup()
+      socket.emit('leave-room', { roomId })
+    }
+  }, [cleanup, roomId, socket])
 
   // ── Leave / End ────────────────────────────────────────────────────
   const leaveMeeting = useCallback(
