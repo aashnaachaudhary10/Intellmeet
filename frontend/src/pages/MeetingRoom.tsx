@@ -189,7 +189,6 @@ export default function MeetingRoom() {
         }
 
         isHostRef.current = m.hostId === user?.id
-        setMeeting(m)
         setMessages(
           (m.chatMessages ?? []).map((msg: any) => ({
             id: msg._id ?? msg.id,
@@ -200,8 +199,18 @@ export default function MeetingRoom() {
           }))
         )
 
-        if (m.status === 'scheduled') {
-          await startMeeting(id!)
+        if (m.status === 'scheduled' && m.hostId === user?.id) {
+          const startResponse = await startMeeting(id!)
+          setMeeting(startResponse.data?.data?.meeting || m)
+        } else {
+          setMeeting(m)
+        }
+
+        if (m.status === 'scheduled' && m.hostId !== user?.id) {
+          toast({
+            title: 'Waiting for host',
+            description: 'The meeting will go live when the host starts it.',
+          })
         }
 
         await setupMedia()
@@ -788,7 +797,17 @@ export default function MeetingRoom() {
   // ── Meeting time limit countdown ───────────────────────────────────
   useEffect(() => {
     if (loading) return
-    if (!limitStartedAtRef.current) limitStartedAtRef.current = Date.now()
+    if (meeting?.status !== 'active') {
+      limitStartedAtRef.current = null
+      setRemainingSeconds(MEETING_LIMIT_SECONDS)
+      return
+    }
+
+    if (!limitStartedAtRef.current) {
+      limitStartedAtRef.current = meeting?.startedAt
+        ? new Date(meeting.startedAt).getTime()
+        : Date.now()
+    }
 
     const timer = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - limitStartedAtRef.current!) / 1000)
@@ -802,7 +821,7 @@ export default function MeetingRoom() {
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [loading, leaveMeeting, meeting?.hostId, user?.id])
+  }, [loading, leaveMeeting, meeting?.hostId, meeting?.startedAt, meeting?.status, user?.id])
 
   const copyCode = () => {
     navigator.clipboard.writeText(meeting?.meetingCode ?? '')
@@ -844,7 +863,9 @@ export default function MeetingRoom() {
         <div>
           <h1 className="truncate text-sm font-semibold text-white">{meeting?.title}</h1>
           <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-xs text-green-400">Live</span>
+            <span className={`text-xs ${meeting?.status === 'active' ? 'text-green-400' : 'text-amber-400'}`}>
+              {meeting?.status === 'active' ? 'Live' : 'Waiting for host'}
+            </span>
             <button
               onClick={copyCode}
               className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition"

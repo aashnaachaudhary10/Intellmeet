@@ -14,6 +14,13 @@ const calculateDurationMinutes = (startedAt, endedAt = new Date()) => {
   return Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000));
 };
 
+const isMeetingParticipant = (meeting, userId) => {
+  if (!userId || !Array.isArray(meeting?.participants)) return false;
+  return meeting.participants.some((participant) =>
+    typeof participant === "object" ? participant.userId === userId : participant === userId
+  );
+};
+
 // Generate a unique meeting code with up to 3 retries on collision
 const generateUniqueMeetingCode = async () => {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -56,12 +63,27 @@ export const createMeeting = async (req, res) => {
 // ── Start Meeting ──────────────────────────────────────────────────
 export const startMeeting = async (req, res) => {
   try {
-    const meeting = await prisma.meeting.update({
+    const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id },
-      data: { status: "active", startedAt: new Date() },
       include: { host: { select: HOST_SELECT } },
     });
-    return sendSuccess(res, 200, "Meeting started", { meeting });
+    if (!meeting) return sendError(res, 404, "Meeting not found");
+    if (meeting.hostId !== req.user?.id) {
+      return sendError(res, 403, "Only the host can start this meeting");
+    }
+    if (meeting.status === "ended") {
+      return sendError(res, 400, "Ended meetings cannot be restarted");
+    }
+    if (meeting.status === "active") {
+      return sendSuccess(res, 200, "Meeting already active", { meeting });
+    }
+
+    const updatedMeeting = await prisma.meeting.update({
+      where: { id: req.params.id },
+      data: { status: "active", startedAt: meeting.startedAt || new Date(), endedAt: null },
+      include: { host: { select: HOST_SELECT } },
+    });
+    return sendSuccess(res, 200, "Meeting started", { meeting: updatedMeeting });
   } catch (err) {
     return sendError(res, 500, err.message);
   }
@@ -72,6 +94,16 @@ export const endMeeting = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({ where: { id: req.params.id } });
     if (!meeting) return sendError(res, 404, "Meeting not found");
+    if (meeting.hostId !== req.user?.id) {
+      return sendError(res, 403, "Only the host can end this meeting");
+    }
+    if (meeting.status === "ended") {
+      const endedMeeting = await prisma.meeting.findUnique({
+        where: { id: req.params.id },
+        include: { host: { select: HOST_SELECT } },
+      });
+      return sendSuccess(res, 200, "Meeting already ended", { meeting: endedMeeting });
+    }
 
     const endedAt = new Date();
     const duration = calculateDurationMinutes(meeting.startedAt, endedAt);
@@ -94,9 +126,12 @@ export const joinMeeting = async (req, res) => {
     const { meetingCode, meetingId, userName } = req.body;
     const userId = req.user?.id;
     const safeUserName = req.user?.name || userName || "Guest";
+    const lookupValue = meetingCode || meetingId;
 
     const meeting = await prisma.meeting.findFirst({
-      where: { meetingCode: meetingCode || meetingId },
+      where: {
+        OR: [{ meetingCode: lookupValue }, { id: lookupValue }],
+      },
     });
 
     if (!meeting) return sendError(res, 404, "Meeting not found");
@@ -116,6 +151,17 @@ export const joinMeeting = async (req, res) => {
         userName: safeUserName,
         joinedAt: new Date().toISOString(),
       });
+    } else {
+      for (let index = 0; index < participants.length; index += 1) {
+        const participant = participants[index];
+        if (typeof participant === "object" && participant.userId === userId) {
+          participants[index] = {
+            ...participant,
+            userName: safeUserName,
+            leftAt: null,
+          };
+        }
+      }
     }
 
     const updated = await prisma.meeting.update({
@@ -136,6 +182,9 @@ export const leaveMeeting = async (req, res) => {
     const userId = req.user?.id;
     const meeting = await prisma.meeting.findUnique({ where: { id: req.params.id } });
     if (!meeting) return sendError(res, 404, "Meeting not found");
+    if (!isMeetingParticipant(meeting, userId) && meeting.hostId !== userId) {
+      return sendError(res, 403, "You are not part of this meeting");
+    }
 
     // Update leftAt for this participant rather than removing them (preserves history)
     const participants = (Array.isArray(meeting.participants) ? meeting.participants : []).map(
@@ -267,6 +316,9 @@ export const deleteMeeting = async (req, res) => {
   try {
     const meeting = await prisma.meeting.findUnique({ where: { id: req.params.id } });
     if (!meeting) return sendError(res, 404, "Meeting not found");
+    if (meeting.hostId !== req.user?.id) {
+      return sendError(res, 403, "Only the host can delete this meeting");
+    }
     await prisma.meeting.delete({ where: { id: req.params.id } });
     return sendSuccess(res, 200, "Meeting deleted successfully");
   } catch (err) {
