@@ -17,7 +17,7 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 
 app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }));
 app.use(express.json());
-
+app.set('trust proxy', 1);
 // Rate limiter on auth endpoints only
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
