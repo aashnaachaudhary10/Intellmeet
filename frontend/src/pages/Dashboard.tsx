@@ -24,7 +24,7 @@ export default function Dashboard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['meetings'],
-    queryFn: () => getMeetings().then(r => (Array.isArray(r.data) ? r.data : r.data?.meetings || []))
+    queryFn: () => getMeetings().then(r => r.data?.data?.meetings || [])
   })
 
   const createMut = useMutation({
@@ -141,7 +141,7 @@ export default function Dashboard() {
         <div className="flex shrink-0 flex-wrap items-center gap-2 opacity-100 transition xl:opacity-0 xl:group-hover:opacity-100">
           {meeting.status !== 'ended' && (
             <button
-              onClick={() => navigate(`/room/${meeting._id}`)}
+              onClick={() => navigate(`/room/${meeting.id}`)}
               className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition"
             >
               <Video size={13} />
@@ -162,14 +162,14 @@ export default function Dashboard() {
             </button>
           )}
           <button
-            onClick={() => navigate(`/app/meeting/${meeting._id}`)}
+            onClick={() => navigate(`/app/meeting/${meeting.id}`)}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
           >
             <ExternalLink size={15} />
           </button>
-          {meeting.host?._id === user?.id || meeting.host === user?.id ? (
+          {meeting.host?.id === user?.id || meeting.hostId === user?.id ? (
             <button
-              onClick={() => { if (confirm('Delete this meeting?')) deleteMut.mutate(meeting._id) }}
+              onClick={() => { if (confirm('Delete this meeting?')) deleteMut.mutate(meeting.id) }}
               className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition"
             >
               <Trash2 size={15} />

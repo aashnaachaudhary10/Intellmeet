@@ -13,6 +13,7 @@ interface AuthStore {
   accessToken: string | null
   refreshToken: string | null
   isLoading: boolean
+  initialized: boolean
   isAuthenticated: boolean
   setUser: (user: User, accessToken: string, refreshToken: string) => void
   setAccessToken: (token: string) => void
@@ -27,6 +28,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   accessToken: null,
   refreshToken: null,
   isLoading: false,
+  initialized: false,
   isAuthenticated: false,
 
   setUser: (user: User, accessToken: string, refreshToken: string) => {
@@ -40,18 +42,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.setItem('accessToken', accessToken)
     localStorage.setItem('refreshToken', refreshToken)
     localStorage.setItem('user', JSON.stringify(normalizedUser))
-    set({ 
-      user: normalizedUser, 
-      accessToken, 
+    set({
+      user: normalizedUser,
+      accessToken,
       refreshToken,
       isAuthenticated: true,
-      isLoading: false
+      isLoading: false,
+      initialized: true,
     })
   },
 
   setAccessToken: (token) => {
     localStorage.setItem('accessToken', token)
-    set({ accessToken: token })
+    set({ accessToken: token, initialized: true })
   },
 
   setLoading: (isLoading) => set({ isLoading }),
@@ -60,11 +63,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
-    set({ 
-      user: null, 
-      accessToken: null, 
+    set({
+      user: null,
+      accessToken: null,
       refreshToken: null,
-      isAuthenticated: false 
+      isAuthenticated: false,
+      isLoading: false,
+      initialized: true,
     })
   },
 
@@ -72,11 +77,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
-    set({ 
-      user: null, 
-      accessToken: null, 
+    set({
+      user: null,
+      accessToken: null,
       refreshToken: null,
-      isAuthenticated: false 
+      isAuthenticated: false,
+      isLoading: false,
+      initialized: true,
     })
   },
 
@@ -88,12 +95,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       if (accessToken && refreshToken && userStr) {
         const user = JSON.parse(userStr)
-        set({ 
-          user, 
-          accessToken, 
+        set({
+          user,
+          accessToken,
           refreshToken,
-          isAuthenticated: true 
+          isAuthenticated: true,
+          isLoading: false,
+          initialized: true,
         })
+      } else {
+        set({ initialized: true, isLoading: false })
       }
     } catch (error) {
       console.error('Failed to initialize auth from storage:', error)

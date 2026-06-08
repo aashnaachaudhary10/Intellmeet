@@ -13,7 +13,7 @@ export default function MeetingDetail() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['meeting', id],
-    queryFn: () => getMeeting(id!).then(r => r.data.meeting)
+    queryFn: () => getMeeting(id!).then(r => r.data?.data?.meeting)
   })
 
   if (error) {
@@ -25,7 +25,7 @@ export default function MeetingDetail() {
   }
 
   const meeting = data
-  const canGenerateSummary = Boolean(meeting?.transcript?.trim() || meeting?.recordingParts?.length)
+  const canGenerateSummary = Boolean(meeting?.transcript?.trim())
 
   const generateSummaryMut = useMutation({
     mutationFn: () => summarizeMeeting(meeting?.transcript || '', id),
@@ -45,7 +45,7 @@ export default function MeetingDetail() {
 
   const handleGenerateSummary = () => {
     if (!canGenerateSummary) {
-      alert('No transcript or recording parts found for this meeting yet.')
+      alert('No transcript found for this meeting yet.')
       return
     }
 
@@ -92,7 +92,7 @@ export default function MeetingDetail() {
           </div>
           {meeting.status !== 'ended' && (
             <button
-              onClick={() => navigate(`/room/${meeting._id}`)}
+              onClick={() => navigate(`/room/${meeting.id}`)}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
             >
               <Video size={16} />
@@ -155,8 +155,8 @@ export default function MeetingDetail() {
               </div>
               <p className="text-slate-500 text-sm">
                 {canGenerateSummary
-                  ? 'No AI summary generated yet. Generate it now from the saved transcript or recording parts.'
-                  : 'No transcript or recording parts found yet.'}
+                  ? 'No AI summary generated yet. Generate it now from the saved transcript.'
+                  : 'No transcript found yet.'}
               </p>
             </div>
           )}
@@ -164,21 +164,21 @@ export default function MeetingDetail() {
           {/* Action Items */}
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="font-semibold text-white mb-4">
-              Action Items ({meeting.actionItems?.length || 0})
+              Action Items ({meeting.tasks?.length || 0})
             </h2>
-            {meeting.actionItems?.length > 0 ? (
+            {meeting.tasks?.length > 0 ? (
               <div className="space-y-3">
-                {meeting.actionItems.map((item: any, i: number) => (
-                  <div key={i} className="flex items-start gap-3 rounded-lg bg-slate-800 p-3">
-                    {item.completed
+                {meeting.tasks.map((item: any, i: number) => (
+                  <div key={item.id || i} className="flex items-start gap-3 rounded-lg bg-slate-800 p-3">
+                    {item.status === 'done'
                       ? <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
                       : <Circle size={18} className="text-slate-500 mt-0.5 shrink-0" />
                     }
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${item.completed ? 'line-through text-slate-500' : 'text-white'}`}>
-                        {item.task}
+                      <p className={`text-sm font-medium ${item.status === 'done' ? 'line-through text-slate-500' : 'text-white'}`}>
+                        {item.title}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">Assigned to {item.assignee}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Assigned to {item.assigneeName || 'Unassigned'}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
                       item.priority === 'high' ? 'bg-red-900/40 text-red-400' :
@@ -224,11 +224,11 @@ export default function MeetingDetail() {
                 </div>
               </div>
               {meeting.participants?.map((p: any, index: number) => (
-                <div key={p._id || p.user?._id || p.name || p || index} className="flex items-center gap-3">
+                <div key={p.userId || p.id || p.name || p.userName || index} className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                    {(p.name || p.user?.name || p)?.[0]?.toUpperCase()}
+                    {(p.userName || p.name || p.user?.name || p)?.[0]?.toUpperCase()}
                   </div>
-                  <p className="text-sm text-slate-300">{p.name || p.user?.name || p}</p>
+                  <p className="text-sm text-slate-300">{p.userName || p.name || p.user?.name || p}</p>
                 </div>
               ))}
             </div>
